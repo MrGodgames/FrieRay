@@ -27,15 +27,6 @@ const navItems = [
         ),
     },
     {
-        path: '/anti-throttle',
-        label: 'Антизамедление',
-        icon: (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-        ),
-    },
-    {
         path: '/logs',
         label: 'Логи',
         icon: (
@@ -60,31 +51,30 @@ const navItems = [
 ];
 
 export default function Sidebar() {
-    const { theme, toggleTheme } = useTheme();
+    const { theme, toggleTheme, isClassic } = useTheme();
     const location = useLocation();
 
     return (
         <aside className="sidebar">
-            {/* Logo area with character */}
             <div className="sidebar-header">
-                <div className="sidebar-character-wrapper">
-                    <img src={characterImg} alt="FrieRay" className="sidebar-character" />
-                    <div className="sidebar-character-glow" />
-                </div>
+                {!isClassic && (
+                    <div className="sidebar-character-wrapper">
+                        <img src={characterImg} alt="FrieRay" className="sidebar-character" />
+                        <div className="sidebar-character-glow" />
+                    </div>
+                )}
                 <div className="sidebar-logo">
-                    <span className="sidebar-logo-name text-gradient">FrieRay</span>
-                    <span className="sidebar-logo-subtitle">✦ V2Ray Client ✦</span>
+                    <span className={`sidebar-logo-name ${isClassic ? '' : 'text-gradient'}`.trim()}>FrieRay</span>
+                    <span className="sidebar-logo-subtitle">{isClassic ? 'V2Ray Client' : '✦ V2Ray Client ✦'}</span>
                 </div>
             </div>
 
-            {/* Ornamental divider */}
             <div className="sidebar-divider">
                 <span className="sidebar-divider-line" />
-                <span className="sidebar-divider-diamond">◆</span>
+                <span className="sidebar-divider-diamond">{isClassic ? '•' : '◆'}</span>
                 <span className="sidebar-divider-line" />
             </div>
 
-            {/* Navigation */}
             <nav className="sidebar-nav">
                 {navItems.map(item => (
                     <NavLink
@@ -99,18 +89,17 @@ export default function Sidebar() {
                         )}
                         <span className="sidebar-nav-icon">{item.icon}</span>
                         <span className="sidebar-nav-label">{item.label}</span>
-                        {item.path === location.pathname && (
+                        {!isClassic && item.path === location.pathname && (
                             <span className="sidebar-nav-sparkle">✦</span>
                         )}
                     </NavLink>
                 ))}
             </nav>
 
-            {/* Footer */}
             <div className="sidebar-footer">
                 <div className="sidebar-divider">
                     <span className="sidebar-divider-line" />
-                    <span className="sidebar-divider-diamond">◆</span>
+                    <span className="sidebar-divider-diamond">{isClassic ? '•' : '◆'}</span>
                     <span className="sidebar-divider-line" />
                 </div>
                 <button className="theme-toggle" onClick={toggleTheme} title="Переключить тему">

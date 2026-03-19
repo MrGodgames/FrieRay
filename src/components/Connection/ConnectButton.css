@@ -14,6 +14,11 @@
     justify-content: center;
 }
 
+.connect-area.classic {
+    width: 140px;
+    height: 140px;
+}
+
 /* ─── SVG Magic Circles ─── */
 .magic-circles {
     position: absolute;
@@ -103,6 +108,16 @@
     color: var(--text-muted);
 }
 
+.connect-btn.classic {
+    width: 92px;
+    height: 92px;
+    border-radius: 28px;
+    background: var(--surface);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-sm);
+}
+
 .connect-btn:hover:not(:disabled) {
     border-color: var(--primary-400);
     color: var(--primary-300);
@@ -110,6 +125,11 @@
         0 0 20px rgba(139, 106, 255, 0.15),
         inset 0 0 15px rgba(139, 106, 255, 0.05);
     transform: scale(1.06);
+}
+
+.connect-btn.classic:hover:not(:disabled) {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
 }
 
 /* Connected */
@@ -157,9 +177,19 @@
     transition: all var(--transition-normal);
 }
 
+.connect-btn.classic .connect-rune {
+    color: currentColor;
+    text-shadow: none;
+}
+
 .connect-btn:hover .connect-rune {
     text-shadow: 0 0 18px var(--accent-400), 0 0 35px var(--primary-400);
     transform: scale(1.1);
+}
+
+.connect-btn.classic:hover .connect-rune {
+    text-shadow: none;
+    transform: none;
 }
 
 /* Label */
@@ -170,6 +200,11 @@
     color: var(--text-muted);
     letter-spacing: 0.1em;
     transition: color var(--transition-fast);
+}
+
+.connect-label.classic {
+    font-family: var(--font-body);
+    letter-spacing: 0.04em;
 }
 
 .connect-btn.connected~.connect-label {

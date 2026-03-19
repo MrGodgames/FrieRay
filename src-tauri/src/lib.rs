@@ -7,6 +7,7 @@ use core::tun::TunManager;
 use core::xray::XrayManager;
 use models::server::{Server, Subscription};
 use models::settings::AppSettings;
+use tauri::Manager;
 use tokio::sync::Mutex;
 use utils::log_buffer::LogBuffer;
 use utils::storage;
@@ -21,6 +22,20 @@ pub struct AppState {
     pub current_server: Mutex<Option<Server>>,
     pub active_server: Mutex<Option<Server>>,
     pub logs: LogBuffer,
+}
+
+async fn cleanup_network_state(state: &AppState, reason: &str) {
+    log::info!("Running network cleanup: {}", reason);
+
+    if let Err(e) = state.tun.stop().await {
+        log::warn!("Startup/exit TUN cleanup: {}", e);
+    }
+    if let Err(e) = state.xray.stop().await {
+        log::warn!("Startup/exit Xray cleanup: {}", e);
+    }
+    if let Err(e) = crate::core::proxy::unset_system_proxy() {
+        log::warn!("Startup/exit proxy cleanup: {}", e);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -47,7 +62,7 @@ pub fn run() {
             .unwrap_or("none")
     );
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .manage(AppState {
@@ -59,6 +74,11 @@ pub fn run() {
             current_server: Mutex::new(None),
             active_server: Mutex::new(active_server),
             logs: LogBuffer::new(),
+        })
+        .setup(|app| {
+            let state = app.state::<AppState>();
+            tauri::async_runtime::block_on(cleanup_network_state(&state, "startup"));
+            Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             // Connection
@@ -90,6 +110,16 @@ pub fn run() {
             commands::logs::get_traffic_stats,
             commands::logs::speed_test,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if matches!(
+            event,
+            tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
+        ) {
+            let state = app_handle.state::<AppState>();
+            tauri::async_runtime::block_on(cleanup_network_state(&state, "exit"));
+        }
+    });
 }

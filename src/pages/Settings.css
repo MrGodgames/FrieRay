@@ -29,6 +29,64 @@
     border-bottom: 1px solid var(--border);
 }
 
+.settings-choice-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-lg);
+}
+
+.settings-choice-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.settings-choice-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.settings-choice-desc {
+    color: var(--text-muted);
+    font-size: 0.77rem;
+}
+
+.settings-segmented {
+    display: inline-flex;
+    gap: 6px;
+    padding: 4px;
+    border-radius: var(--radius-full);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.settings-segment {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.settings-segment:hover {
+    color: var(--text-primary);
+}
+
+.settings-segment.active {
+    background: rgba(139, 106, 255, 0.14);
+    color: var(--primary-300);
+    box-shadow: inset 0 0 0 1px rgba(139, 106, 255, 0.18);
+}
+
 /* Input */
 .settings-input-group {
     display: flex;
@@ -88,4 +146,19 @@
     font-family: var(--font-mono);
     font-size: 0.7rem;
     color: var(--text-muted);
+}
+
+@media (max-width: 760px) {
+    .settings-choice-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .settings-segmented {
+        width: 100%;
+    }
+
+    .settings-segment {
+        flex: 1;
+    }
 }

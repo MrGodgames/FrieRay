@@ -204,3 +204,34 @@
     opacity: 0.5;
     margin-top: var(--space-xs);
 }
+
+[data-ui-style="classic"] .sidebar-logo-name {
+    letter-spacing: 0.03em;
+}
+
+[data-ui-style="classic"] .sidebar-logo-subtitle {
+    letter-spacing: 0.08em;
+}
+
+[data-ui-style="classic"] .sidebar-divider {
+    margin: var(--space-sm) var(--space-xs);
+}
+
+[data-ui-style="classic"] .sidebar-divider-line {
+    background: var(--border);
+    opacity: 0.8;
+}
+
+[data-ui-style="classic"] .sidebar-divider-diamond {
+    text-shadow: none;
+    opacity: 0.65;
+}
+
+[data-ui-style="classic"] .sidebar-nav-item.active {
+    box-shadow: none;
+}
+
+[data-ui-style="classic"] .sidebar-nav-indicator {
+    background: var(--primary-400);
+    box-shadow: none;
+}

@@ -91,6 +91,10 @@
   --header-height: 0px;
 }
 
+[data-ui-style="classic"] {
+  --font-heading: 'Outfit', 'Inter', sans-serif;
+}
+
 /* ============================================
    Dark Theme (Default)
    ============================================ */
@@ -342,6 +346,19 @@ pre {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+[data-ui-style="classic"] .fantasy-border::before,
+[data-ui-style="classic"] .fantasy-border::after,
+[data-ui-style="classic"] .corner-ornaments::before,
+[data-ui-style="classic"] .corner-ornaments::after {
+  display: none;
+}
+
+[data-ui-style="classic"] .text-gradient {
+  background: none;
+  color: var(--text-primary);
+  -webkit-text-fill-color: currentColor;
 }
 
 .text-gold {

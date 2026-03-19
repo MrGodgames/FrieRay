@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import Card, { CardHeader, CardBody } from '../components/UI/Card';
+import Card, { CardBody } from '../components/UI/Card';
 import Toggle from '../components/UI/Toggle';
 import Button from '../components/UI/Button';
+import { useTheme } from '../hooks/useTheme';
 import * as api from '../api/tauri';
 import './Settings.css';
 
 export default function Settings() {
+    const { theme, setTheme, uiStyle, setUiStyle, isClassic } = useTheme();
     const [settings, setSettings] = useState({
         general: { auto_connect: false, start_minimized: false, auto_update_subs: true, auto_update_interval_hours: 6 },
         proxy: { system_proxy: true, tun_mode: false, socks_port: 10808, http_port: 10809 },
@@ -64,6 +66,61 @@ export default function Settings() {
             <div className="page-header">
                 <h1><span className="text-gradient">Настройки</span></h1>
                 <p>Конфигурация приложения</p>
+            </div>
+
+            <div className="settings-section">
+                <h4 className="settings-section-title">✦ Оформление</h4>
+                <Card variant="glass" hover={false}>
+                    <CardBody>
+                        <div className="settings-list">
+                            <div className="settings-choice-row">
+                                <div className="settings-choice-copy">
+                                    <span className="settings-choice-label">Цветовая тема</span>
+                                    <span className="settings-choice-desc">Переключает светлую и тёмную палитру интерфейса.</span>
+                                </div>
+                                <div className="settings-segmented" role="tablist" aria-label="Выбор цветовой темы">
+                                    <button
+                                        type="button"
+                                        className={`settings-segment ${theme === 'dark' ? 'active' : ''}`}
+                                        onClick={() => setTheme('dark')}
+                                    >
+                                        Тёмная
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`settings-segment ${theme === 'light' ? 'active' : ''}`}
+                                        onClick={() => setTheme('light')}
+                                    >
+                                        Светлая
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="settings-choice-row">
+                                <div className="settings-choice-copy">
+                                    <span className="settings-choice-label">Стиль интерфейса</span>
+                                    <span className="settings-choice-desc">Классический режим убирает персонажа, частицы и фэнтези-декор.</span>
+                                </div>
+                                <div className="settings-segmented" role="tablist" aria-label="Выбор стиля интерфейса">
+                                    <button
+                                        type="button"
+                                        className={`settings-segment ${uiStyle === 'fantasy' ? 'active' : ''}`}
+                                        onClick={() => setUiStyle('fantasy')}
+                                    >
+                                        Фэнтези
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`settings-segment ${uiStyle === 'classic' ? 'active' : ''}`}
+                                        onClick={() => setUiStyle('classic')}
+                                    >
+                                        Классический
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </CardBody>
+                </Card>
             </div>
 
             {/* General */}
@@ -199,8 +256,12 @@ export default function Settings() {
                         <div className="about-info">
                             <div className="about-logo text-gradient">FrieRay</div>
                             <div className="about-version">v0.1.0</div>
-                            <p className="about-desc">V2Ray клиент в стиле «Провожающая в последний путь Фрирен»</p>
-                            <p className="about-tech">Tauri v2 • React • Xray-core • Zapret</p>
+                            <p className="about-desc">
+                                {isClassic
+                                    ? 'Минималистичный V2Ray клиент без аниме-стилистики'
+                                    : 'V2Ray клиент в стиле «Провожающая в последний путь Фрирен»'}
+                            </p>
+                            <p className="about-tech">Tauri v2 • React • Xray-core</p>
                         </div>
                     </CardBody>
                 </Card>

@@ -4,7 +4,6 @@
     gap: var(--space-xl);
 }
 
-/* Error bar */
 .dashboard-error {
     display: flex;
     justify-content: space-between;
@@ -32,7 +31,6 @@
     opacity: 1;
 }
 
-/* Hero connect area */
 .dashboard-hero {
     display: flex;
     justify-content: center;
@@ -40,7 +38,7 @@
 
 .dashboard-connect-card {
     width: 100%;
-    max-width: 550px;
+    max-width: 560px;
     background: var(--glass-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -57,7 +55,6 @@
     gap: var(--space-xl);
 }
 
-/* Server info */
 .dashboard-server-info {
     width: 100%;
     display: flex;
@@ -71,7 +68,13 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--space-md);
     padding: var(--space-xs) 0;
+}
+
+.server-info-row-tun {
+    align-items: flex-start;
+    padding-top: var(--space-sm);
 }
 
 .server-info-label {
@@ -84,6 +87,7 @@
     font-size: 0.82rem;
     font-weight: 500;
     color: var(--text-secondary);
+    text-align: right;
 }
 
 .server-info-value.server-info-mono {
@@ -105,134 +109,119 @@
     color: var(--text-muted);
 }
 
-/* Stats grid */
-.dashboard-stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-md);
-}
-
-@media (max-width: 900px) {
-    .dashboard-stats {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-.stat-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    border-radius: var(--radius-lg);
-    padding: var(--space-md) var(--space-lg);
-    transition: all var(--transition-normal);
-}
-
-.stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--glass-shadow);
-}
-
-.stat-content {
+.server-info-tun-copy {
     display: flex;
-    align-items: center;
-    gap: var(--space-md);
+    flex-direction: column;
+    gap: 4px;
 }
 
-.stat-icon {
-    font-size: 1.4rem;
-    width: 36px;
-    height: 36px;
-    display: flex;
+.server-info-tun-hint {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+.dashboard-tun-toggle {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-md);
-    background: rgba(139, 106, 255, 0.06);
+    gap: 10px;
+    border: 1px solid var(--border);
+    background: rgba(139, 106, 255, 0.05);
+    color: var(--text-secondary);
+    border-radius: var(--radius-full);
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
     flex-shrink: 0;
 }
 
-.stat-info {
-    display: flex;
-    flex-direction: column;
+.dashboard-tun-toggle:hover:not(:disabled) {
+    border-color: rgba(139, 106, 255, 0.25);
+    transform: translateY(-1px);
 }
 
-.stat-value {
-    font-family: var(--font-display);
-    font-size: 1.05rem;
+.dashboard-tun-toggle:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.dashboard-tun-toggle-static {
+    cursor: default;
+    pointer-events: none;
+}
+
+.dashboard-tun-toggle.active {
+    background: rgba(45, 232, 160, 0.1);
+    border-color: rgba(45, 232, 160, 0.25);
+    color: var(--accent-400);
+}
+
+.dashboard-tun-toggle-static.ping-good {
+    background: rgba(45, 232, 160, 0.1);
+    border-color: rgba(45, 232, 160, 0.25);
+    color: var(--accent-400);
+}
+
+.dashboard-tun-toggle-static.ping-warn {
+    background: rgba(255, 202, 40, 0.1);
+    border-color: rgba(255, 202, 40, 0.25);
+    color: var(--gold-400);
+}
+
+.dashboard-tun-toggle-static.ping-bad {
+    background: rgba(255, 107, 138, 0.1);
+    border-color: rgba(255, 107, 138, 0.25);
+    color: var(--error);
+}
+
+.dashboard-tun-toggle-track {
+    width: 40px;
+    height: 22px;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.1);
+    position: relative;
+    transition: all var(--transition-fast);
+}
+
+.dashboard-tun-toggle-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    transition: all var(--transition-fast);
+}
+
+.dashboard-tun-toggle.active .dashboard-tun-toggle-track {
+    background: linear-gradient(135deg, var(--primary-500), var(--accent-500));
+}
+
+.dashboard-tun-toggle.active .dashboard-tun-toggle-thumb {
+    transform: translateX(18px);
+    background: #fff;
+    box-shadow: 0 0 10px rgba(45, 232, 160, 0.35);
+}
+
+.dashboard-tun-toggle-text {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
     font-weight: 700;
-    color: var(--text-primary);
-}
-
-.stat-label {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    letter-spacing: 0.03em;
-}
-
-.dashboard-speed-test {
-    background: var(--glass-bg);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    border-radius: var(--radius-lg);
-}
-
-.dashboard-speed-test-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-lg);
-}
-
-.dashboard-speed-test-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.dashboard-speed-test-label {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    letter-spacing: 0.04em;
-}
-
-.dashboard-speed-test-value {
-    font-family: var(--font-display);
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.dashboard-speed-test-hint {
-    max-width: 56ch;
-    font-size: 0.76rem;
-    color: var(--text-muted);
-    line-height: 1.5;
+    letter-spacing: 0.08em;
 }
 
 @media (max-width: 720px) {
-    .dashboard-speed-test-row {
+    .server-info-row {
         flex-direction: column;
         align-items: flex-start;
     }
-}
 
-/* Info cards */
-.dashboard-info {
-    margin-top: var(--space-sm);
-}
+    .server-info-value {
+        text-align: left;
+    }
 
-.info-empty {
-    text-align: center;
-    padding: var(--space-lg) 0;
-}
-
-.info-empty p {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    margin-bottom: var(--space-xs);
-    font-style: italic;
-}
-
-.info-hint {
-    color: var(--text-muted);
-    font-size: 0.75rem;
+    .dashboard-tun-toggle {
+        margin-top: 6px;
+    }
 }

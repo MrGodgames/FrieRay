@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 const HELPER_PATH: &str = "/usr/local/bin/frieray-tun-helper";
 const SUDOERS_PATH: &str = "/etc/sudoers.d/frieray";
 const TUN_DEVICE: &str = "utun99";
-const HELPER_VERSION: &str = "VERSION=9_MACOS_P2P_GATEWAY";
+const HELPER_VERSION: &str = "VERSION=10_MACOS_ROBUST_CLEANUP";
 const TUN_LOCAL_IP: &str = "198.18.0.1";
 const TUN_REMOTE_IP: &str = "198.18.0.2";
 const TUN_PID_PATH: &str = "/tmp/frieray-tun2socks.pid";
@@ -98,6 +98,13 @@ case "$1" in
         ;;
 
     stop)
+        cleanup_routes() {{
+            route -n delete -net 0.0.0.0 -netmask 128.0.0.0 "{tun_remote_ip}" 2>/dev/null || true
+            route -n delete -net 128.0.0.0 -netmask 128.0.0.0 "{tun_remote_ip}" 2>/dev/null || true
+            route -n delete -net 0.0.0.0 -netmask 128.0.0.0 2>/dev/null || true
+            route -n delete -net 128.0.0.0 -netmask 128.0.0.0 2>/dev/null || true
+        }}
+
         # Kill tun2socks
         if [ -f "$PID_FILE" ]; then
             kill "$(cat "$PID_FILE")" 2>/dev/null || true
@@ -108,12 +115,22 @@ case "$1" in
         # Clean up override routes cleanly using explicit netmask
         GATEWAY="$2"
         SERVER_IP="$3"
-        
-        route -n delete -net 0.0.0.0 -netmask 128.0.0.0 2>/dev/null || true
-        route -n delete -net 128.0.0.0 -netmask 128.0.0.0 2>/dev/null || true
+
+        cleanup_routes
+        sleep 1
+        cleanup_routes
+
         if [ -n "$SERVER_IP" ] && [ "$SERVER_IP" != "" ] && [ "$SERVER_IP" != "0.0.0.0" ]; then
             route -n delete -host "$SERVER_IP" 2>/dev/null || true
+            if [ -n "$GATEWAY" ] && [ "$GATEWAY" != "" ]; then
+                route -n add -host "$SERVER_IP" "$GATEWAY" 2>/dev/null || true
+            fi
         fi
+
+        route -n get 1.1.1.1 2>/dev/null | grep -q "gateway: {tun_remote_ip}" && {{
+            echo "TUN stop warning: default traffic still points to {tun_remote_ip}" >&2
+            exit 1
+        }}
         echo "TUN stopped"
         ;;
 
@@ -265,12 +282,20 @@ esac
         match result {
             Ok(output) => {
                 let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
                 log::info!("TUN helper stop: {}", stdout.trim());
+                if !output.status.success() {
+                    return Err(format!("TUN stop failed: {}", stderr.trim()));
+                }
             }
             Err(e) => {
                 log::warn!("TUN stop error: {}", e);
+                return Err(format!("TUN stop error: {}", e));
             }
         }
+
+        *self.original_gateway.lock().await = None;
+        *self.server_ip.lock().await = None;
 
         Ok(())
     }

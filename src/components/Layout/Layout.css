@@ -33,6 +33,10 @@
     z-index: 0;
 }
 
+[data-ui-style="classic"] .app-bg::before {
+    display: none;
+}
+
 /* Subtle star-like dots via radial gradients */
 .app-bg-stars {
     position: absolute;
@@ -107,6 +111,21 @@
     opacity: 0.4;
     letter-spacing: 0.3em;
     text-shadow: 0 0 10px var(--accent-400);
+}
+
+[data-ui-style="classic"] .page-header p {
+    font-style: normal;
+}
+
+[data-ui-style="classic"] .page-header::after {
+    content: '';
+    width: 72px;
+    height: 1px;
+    margin-top: var(--space-md);
+    background: linear-gradient(90deg, transparent, var(--border-hover), transparent);
+    opacity: 1;
+    letter-spacing: 0;
+    text-shadow: none;
 }
 
 /* Card grid */
