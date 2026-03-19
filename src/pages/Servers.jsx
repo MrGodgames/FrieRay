@@ -14,6 +14,7 @@ export default function Servers() {
     const [subName, setSubName] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
     const [isPinging, setIsPinging] = useState(false);
+    const [isTestingSpeed, setIsTestingSpeed] = useState(false);
     const [autoUpdate, setAutoUpdate] = useState(true);
     const [error, setError] = useState(null);
 
@@ -34,16 +35,41 @@ export default function Servers() {
         load();
     }, []);
 
-    const getPingColor = (ping) => {
+    useEffect(() => {
+        if (!isPinging && !isTestingSpeed) return;
+        const poll = async () => {
+            try {
+                const srvs = await api.getServers();
+                if (srvs) setServers(srvs);
+            } catch (e) { }
+        };
+        poll();
+        const interval = setInterval(poll, 700);
+        return () => clearInterval(interval);
+    }, [isPinging, isTestingSpeed]);
+
+    const getPingColor = (server) => {
+        if (server.reachable === false) return 'var(--error)';
+        const ping = server.ping;
         if (!ping && ping !== 0) return 'var(--text-muted)';
         if (ping < 80) return 'var(--accent-400)';
         if (ping < 150) return 'var(--warning)';
         return 'var(--error)';
     };
 
-    const getPingLabel = (ping) => {
+    const getPingLabel = (server) => {
+        if (server.reachable === false) return 'Недоступен';
+        const ping = server.ping;
         if (!ping && ping !== 0) return '—';
         return `${ping}ms`;
+    };
+
+    const formatSpeedLabel = (server) => {
+        if (server.reachable === false) return 'Недоступен';
+        const speedMbps = server.speed_mbps;
+        if (speedMbps === null || speedMbps === undefined) return '—';
+        if (speedMbps < 1) return `${speedMbps.toFixed(2)} Mb/s`;
+        return `${speedMbps.toFixed(1)} Mb/s`;
     };
 
     const handleAddSubscription = async () => {
@@ -89,6 +115,19 @@ export default function Servers() {
             setError(e?.toString() || 'Ошибка пинга');
         } finally {
             setIsPinging(false);
+        }
+    };
+
+    const handleSpeedTestAll = async () => {
+        setIsTestingSpeed(true);
+        setError(null);
+        try {
+            const result = await api.speedTestAllServers();
+            if (result) setServers(result);
+        } catch (e) {
+            setError(e?.toString() || 'Ошибка теста скорости');
+        } finally {
+            setIsTestingSpeed(false);
         }
     };
 
@@ -230,6 +269,10 @@ export default function Servers() {
                             icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>}>
                             Пинг
                         </Button>
+                        <Button variant="secondary" size="sm" loading={isTestingSpeed} onClick={handleSpeedTestAll}
+                            icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h3l3-8 4 16 3-8h5" /></svg>}>
+                            Скорость
+                        </Button>
                         <Button variant="secondary" size="sm" loading={isUpdating} onClick={handleUpdateAll}
                             icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>}>
                             Обновить
@@ -267,8 +310,11 @@ export default function Servers() {
                                         <span className="server-protocol">
                                             {typeof server.protocol === 'string' ? server.protocol.toUpperCase() : 'VLESS'}
                                         </span>
-                                        <span className="server-ping" style={{ color: getPingColor(server.ping) }}>
-                                            {getPingLabel(server.ping)}
+                                        <span className="server-ping" style={{ color: getPingColor(server) }}>
+                                            {getPingLabel(server)}
+                                        </span>
+                                        <span className="server-speed">
+                                            {formatSpeedLabel(server)}
                                         </span>
                                         {activeServerId === server.id && (
                                             <span className="server-active-badge">✓ АКТИВНЫЙ</span>

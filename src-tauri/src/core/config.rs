@@ -4,7 +4,7 @@ use crate::models::xray_config::*;
 use serde_json::json;
 
 /// Generate a complete Xray-core config from server + settings
-pub fn generate_xray_config(server: &Server, settings: &AppSettings) -> XrayConfig {
+pub fn generate_xray_config(server: &Server, settings: &AppSettings, api_port: u16) -> XrayConfig {
     let proxy_outbound = build_proxy_outbound(server);
     let direct_outbound = build_direct_outbound();
     let block_outbound = build_block_outbound();
@@ -126,7 +126,7 @@ pub fn generate_xray_config(server: &Server, settings: &AppSettings) -> XrayConf
             // API inbound (for stats)
             Inbound {
                 tag: "api-in".into(),
-                port: 10085,
+                port: api_port,
                 listen: "127.0.0.1".into(),
                 protocol: "dokodemo-door".into(),
                 settings: Some(json!({
@@ -211,6 +211,16 @@ fn build_vless_outbound(server: &Server) -> Outbound {
         None
     };
 
+    let xhttp_settings = if server.network == "xhttp" || server.network == "splithttp" {
+        Some(XhttpSettings {
+            path: server.path.clone().unwrap_or_else(|| "/".into()),
+            host: server.host.clone(),
+            mode: "auto".into(),
+        })
+    } else {
+        None
+    };
+
     Outbound {
         tag: "proxy".into(),
         protocol: "vless".into(),
@@ -224,6 +234,7 @@ fn build_vless_outbound(server: &Server) -> Outbound {
             reality_settings,
             ws_settings,
             grpc_settings,
+            xhttp_settings,
             tcp_settings: None,
         }),
     }

@@ -20,7 +20,12 @@ pub struct Server {
     pub host: Option<String>,         // ws host
     pub service_name: Option<String>, // grpc
     pub country: Option<String>,
+    #[serde(default)]
     pub ping: Option<u32>,
+    #[serde(default)]
+    pub speed_mbps: Option<f64>,
+    #[serde(default)]
+    pub reachable: Option<bool>,
     pub subscription_id: Option<String>,
 }
 

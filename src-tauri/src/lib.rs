@@ -77,6 +77,7 @@ pub fn run() {
             commands::servers::get_active_server,
             commands::servers::ping_server,
             commands::servers::ping_all_servers,
+            commands::servers::speed_test_all_servers,
             // System
             commands::system::save_settings,
             commands::system::load_settings,

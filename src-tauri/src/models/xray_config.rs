@@ -63,6 +63,8 @@ pub struct StreamSettings {
     pub ws_settings: Option<WsSettings>,
     #[serde(rename = "grpcSettings", skip_serializing_if = "Option::is_none")]
     pub grpc_settings: Option<GrpcSettings>,
+    #[serde(rename = "xhttpSettings", skip_serializing_if = "Option::is_none")]
+    pub xhttp_settings: Option<XhttpSettings>,
     #[serde(rename = "tcpSettings", skip_serializing_if = "Option::is_none")]
     pub tcp_settings: Option<serde_json::Value>,
 }
@@ -101,6 +103,14 @@ pub struct GrpcSettings {
     pub service_name: String,
     #[serde(rename = "multiMode")]
     pub multi_mode: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct XhttpSettings {
+    pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    pub mode: String,
 }
 
 // ─── Routing ───

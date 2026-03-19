@@ -1,15 +1,21 @@
+use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
-use std::process::Stdio;
 use std::sync::Arc;
-use tokio::process::{Child, Command};
+use tokio::net::lookup_host;
+use tokio::process::Command;
 use tokio::sync::Mutex;
 
 const HELPER_PATH: &str = "/usr/local/bin/frieray-tun-helper";
 const SUDOERS_PATH: &str = "/etc/sudoers.d/frieray";
+const TUN_DEVICE: &str = "utun99";
+const HELPER_VERSION: &str = "VERSION=9_MACOS_P2P_GATEWAY";
+const TUN_LOCAL_IP: &str = "198.18.0.1";
+const TUN_REMOTE_IP: &str = "198.18.0.2";
+const TUN_PID_PATH: &str = "/tmp/frieray-tun2socks.pid";
+const TUN_LOG_PATH: &str = "/tmp/frieray-tun2socks.log";
 
 /// Manages the tun2socks process and system routes for TUN mode
 pub struct TunManager {
-    process: Arc<Mutex<Option<Child>>>,
     original_gateway: Arc<Mutex<Option<String>>>,
     server_ip: Arc<Mutex<Option<String>>>,
 }
@@ -17,7 +23,6 @@ pub struct TunManager {
 impl TunManager {
     pub fn new() -> Self {
         Self {
-            process: Arc::new(Mutex::new(None)),
             original_gateway: Arc::new(Mutex::new(None)),
             server_ip: Arc::new(Mutex::new(None)),
         }
@@ -30,7 +35,7 @@ impl TunManager {
         }
         // Check if helper has the latest safe routing logic
         if let Ok(content) = std::fs::read_to_string(HELPER_PATH) {
-            content.contains("VERSION=7_MACOS_QUOTED_P2P")
+            content.contains(HELPER_VERSION)
         } else {
             false
         }
@@ -46,13 +51,16 @@ impl TunManager {
         let username = whoami().await;
 
         // Create helper script content
-        let helper_script = format!(r#"#!/bin/bash
+        let helper_script = format!(
+            r#"#!/bin/bash
 # FrieRay TUN Helper — runs with sudo NOPASSWD
-# VERSION=7_MACOS_QUOTED_P2P
-set -e
+# {helper_version}
+set -euo pipefail
 
 TUN2SOCKS="{tun2socks}"
-DEVICE="utun99"
+DEVICE="{device}"
+PID_FILE="{pid_file}"
+LOG_FILE="{log_file}"
 
 case "$1" in
     start)
@@ -60,26 +68,40 @@ case "$1" in
         SERVER_IP="$3"
         GATEWAY="$4"
 
+        # Stop stale instance before starting a new one.
+        if [ -f "$PID_FILE" ]; then
+            kill "$(cat "$PID_FILE")" 2>/dev/null || true
+            rm -f "$PID_FILE"
+        fi
+        killall tun2socks 2>/dev/null || true
+
         # Start tun2socks in background with debug logging
-        "$TUN2SOCKS" -device $DEVICE -proxy "$PROXY" -loglevel debug > /tmp/frieray-tun2socks.log 2>&1 &
-        echo $! > /tmp/frieray-tun2socks.pid
+        "$TUN2SOCKS" -device "$DEVICE" -proxy "$PROXY" -loglevel debug > "$LOG_FILE" 2>&1 &
+        TUN_PID=$!
+        echo "$TUN_PID" > "$PID_FILE" 2>/dev/null || true
         sleep 1
+        kill -0 "$TUN_PID"
 
-        # Configure point-to-point interface: Local 198.18.0.1, Remote 198.18.0.2
-        ifconfig $DEVICE 198.18.0.1 198.18.0.2 up 2>/dev/null || true
+        # Configure point-to-point interface. macOS routes should target the remote peer.
+        ifconfig "$DEVICE" "{tun_local_ip}" "{tun_remote_ip}" up
 
-        # Setup standard macOS TUN routes pointing to the REMOTE peer (198.18.0.2)
-        route add "$SERVER_IP" "$GATEWAY" 2>/dev/null || true
-        route add -net 0.0.0.0/1 -interface $DEVICE 2>/dev/null || true
-        route add -net 128.0.0.0/1 -interface $DEVICE 2>/dev/null || true
-        echo "TUN started"
+        # Setup routes: keep the VPN server outside the tunnel, send everything else into the TUN peer.
+        route -n delete -host "$SERVER_IP" >/dev/null 2>&1 || true
+        route -n add -host "$SERVER_IP" "$GATEWAY"
+        route -n delete -net 0.0.0.0 -netmask 128.0.0.0 >/dev/null 2>&1 || true
+        route -n delete -net 128.0.0.0 -netmask 128.0.0.0 >/dev/null 2>&1 || true
+        route -n add -net 0.0.0.0 -netmask 128.0.0.0 "{tun_remote_ip}"
+        route -n add -net 128.0.0.0 -netmask 128.0.0.0 "{tun_remote_ip}"
+        sleep 1
+        route -n get 1.1.1.1 | grep -Eq "gateway: {tun_remote_ip}|interface: utun"
+        echo "TUN started (pid=$TUN_PID)"
         ;;
 
     stop)
         # Kill tun2socks
-        if [ -f /tmp/frieray-tun2socks.pid ]; then
-            kill $(cat /tmp/frieray-tun2socks.pid) 2>/dev/null || true
-            rm -f /tmp/frieray-tun2socks.pid
+        if [ -f "$PID_FILE" ]; then
+            kill "$(cat "$PID_FILE")" 2>/dev/null || true
+            rm -f "$PID_FILE"
         fi
         killall tun2socks 2>/dev/null || true
 
@@ -87,16 +109,16 @@ case "$1" in
         GATEWAY="$2"
         SERVER_IP="$3"
         
-        route delete -net 0.0.0.0 -netmask 128.0.0.0 -interface $DEVICE 2>/dev/null || true
-        route delete -net 128.0.0.0 -netmask 128.0.0.0 -interface $DEVICE 2>/dev/null || true
+        route -n delete -net 0.0.0.0 -netmask 128.0.0.0 2>/dev/null || true
+        route -n delete -net 128.0.0.0 -netmask 128.0.0.0 2>/dev/null || true
         if [ -n "$SERVER_IP" ] && [ "$SERVER_IP" != "" ] && [ "$SERVER_IP" != "0.0.0.0" ]; then
-            route delete "$SERVER_IP" 2>/dev/null || true
+            route -n delete -host "$SERVER_IP" 2>/dev/null || true
         fi
         echo "TUN stopped"
         ;;
 
     status)
-        if [ -f /tmp/frieray-tun2socks.pid ] && kill -0 $(cat /tmp/frieray-tun2socks.pid) 2>/dev/null; then
+        if pgrep -x tun2socks >/dev/null 2>&1; then
             echo "running"
         else
             echo "stopped"
@@ -108,7 +130,15 @@ case "$1" in
         exit 1
         ;;
 esac
-"#, tun2socks = tun2socks_path);
+"#,
+            tun2socks = tun2socks_path,
+            helper_version = HELPER_VERSION,
+            device = TUN_DEVICE,
+            pid_file = TUN_PID_PATH,
+            log_file = TUN_LOG_PATH,
+            tun_local_ip = TUN_LOCAL_IP,
+            tun_remote_ip = TUN_REMOTE_IP,
+        );
 
         // Write helper to temp, then use osascript to install (one-time password)
         let tmp_helper = "/tmp/frieray-tun-helper";
@@ -118,10 +148,7 @@ esac
             .map_err(|e| format!("Write helper error: {}", e))?;
 
         // Create sudoers entry
-        let sudoers_content = format!(
-            "{} ALL=(root) NOPASSWD: {}\n",
-            username, HELPER_PATH
-        );
+        let sudoers_content = format!("{} ALL=(root) NOPASSWD: {}\n", username, HELPER_PATH);
         std::fs::write(tmp_sudoers, &sudoers_content)
             .map_err(|e| format!("Write sudoers error: {}", e))?;
 
@@ -129,8 +156,14 @@ esac
         let install_cmd = format!(
             "cp {} {} && chmod 755 {} && chown root:wheel {} && \
              cp {} {} && chmod 440 {} && chown root:wheel {}",
-            tmp_helper, HELPER_PATH, HELPER_PATH, HELPER_PATH,
-            tmp_sudoers, SUDOERS_PATH, SUDOERS_PATH, SUDOERS_PATH
+            tmp_helper,
+            HELPER_PATH,
+            HELPER_PATH,
+            HELPER_PATH,
+            tmp_sudoers,
+            SUDOERS_PATH,
+            SUDOERS_PATH,
+            SUDOERS_PATH
         );
 
         let result = Command::new("osascript")
@@ -163,15 +196,22 @@ esac
             self.install_helper().await?;
         }
 
+        let server_route_ip = resolve_server_ipv4(vpn_server_ip).await?;
+
         // Get current default gateway BEFORE stopping any existing instance
         let gateway = get_default_gateway().await?;
         log::info!("Current gateway: {}", gateway);
+        log::info!(
+            "TUN bypass route target: {} -> {}",
+            vpn_server_ip,
+            server_route_ip
+        );
 
         {
             let mut gw = self.original_gateway.lock().await;
             *gw = Some(gateway.clone());
             let mut sip = self.server_ip.lock().await;
-            *sip = Some(vpn_server_ip.to_string());
+            *sip = Some(server_route_ip.clone());
         }
 
         // Now that we've secured our original gateway state, we can safely stop any existing TUN
@@ -184,7 +224,7 @@ esac
             .arg(HELPER_PATH)
             .arg("start")
             .arg(&proxy_url)
-            .arg(vpn_server_ip)
+            .arg(&server_route_ip)
             .arg(&gateway)
             .output()
             .await
@@ -197,6 +237,7 @@ esac
 
         let stdout = String::from_utf8_lossy(&result.stdout);
         log::info!("TUN helper: {}", stdout.trim());
+        self.verify_startup(&server_route_ip).await?;
 
         Ok(())
     }
@@ -229,6 +270,45 @@ esac
             Err(e) => {
                 log::warn!("TUN stop error: {}", e);
             }
+        }
+
+        Ok(())
+    }
+
+    async fn verify_startup(&self, server_ip: &str) -> Result<(), String> {
+        if !is_tun_process_alive().await {
+            let log_tail = read_tun_log_tail();
+            self.stop().await.ok();
+            return Err(format!(
+                "tun2socks завершился сразу после старта. {}",
+                log_tail
+            ));
+        }
+
+        let default_route = get_route_details("1.1.1.1").await?;
+        if !route_uses_tun(&default_route) {
+            self.stop().await.ok();
+            return Err(format!(
+                "TUN маршрут не активировался: внешний трафик всё ещё идёт мимо туннеля. {}",
+                compact_route_details(&default_route),
+            ));
+        }
+
+        let server_route = get_route_details(server_ip).await?;
+        let gateway = self
+            .original_gateway
+            .lock()
+            .await
+            .clone()
+            .unwrap_or_default();
+        if !gateway.is_empty() && !route_uses_gateway(&server_route, &gateway) {
+            self.stop().await.ok();
+            return Err(format!(
+                "Маршрут до VPN-сервера {} не закрепился через исходный шлюз {}. {}",
+                server_ip,
+                gateway,
+                compact_route_details(&server_route),
+            ));
         }
 
         Ok(())
@@ -296,11 +376,14 @@ async fn get_default_gateway() -> Result<String, String> {
         .arg("ipconfig getoption en0 router || ipconfig getoption en1 router")
         .output()
         .await;
-        
+
     if let Ok(out) = fallback {
         let fallback_gw = String::from_utf8_lossy(&out.stdout).trim().to_string();
         if !fallback_gw.is_empty() {
-            log::info!("Recovered gateway from networksetup/ipconfig: {}", fallback_gw);
+            log::info!(
+                "Recovered gateway from networksetup/ipconfig: {}",
+                fallback_gw
+            );
             std::fs::write("/tmp/frieray-gateway.txt", &fallback_gw).ok();
             return Ok(fallback_gw);
         }
@@ -315,6 +398,28 @@ async fn whoami() -> String {
         .await
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap_or_else(|_| "nobody".into())
+}
+
+async fn resolve_server_ipv4(input: &str) -> Result<String, String> {
+    if input.parse::<Ipv4Addr>().is_ok() {
+        return Ok(input.to_string());
+    }
+
+    if let Ok(IpAddr::V6(_)) = input.parse::<IpAddr>() {
+        return Err("TUN режим сейчас поддерживает только IPv4-адрес VPN-сервера".into());
+    }
+
+    let resolved = lookup_host((input, 0))
+        .await
+        .map_err(|e| format!("Не удалось резолвить адрес VPN-сервера {}: {}", input, e))?;
+
+    for addr in resolved {
+        if let IpAddr::V4(ip) = addr.ip() {
+            return Ok(ip.to_string());
+        }
+    }
+
+    Err(format!("Для VPN-сервера {} не найден IPv4-адрес, а текущий TUN helper работает только с IPv4-маршрутами", input))
 }
 
 fn config_dir() -> PathBuf {
@@ -333,14 +438,17 @@ async fn download_tun2socks(dest: &PathBuf) -> Result<(), String> {
         "tun2socks-darwin-amd64.zip"
     };
 
-    let base_url = format!("https://github.com/xjasonlyu/tun2socks/releases/latest/download/{}", filename);
+    let base_url = format!(
+        "https://github.com/xjasonlyu/tun2socks/releases/latest/download/{}",
+        filename
+    );
     let mirrors = vec![
         base_url.clone(),
         format!("https://ghproxy.net/{}", base_url),
         format!("https://mirror.ghproxy.com/{}", base_url),
     ];
 
-    let mut client = reqwest::Client::builder()
+    let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
@@ -351,7 +459,12 @@ async fn download_tun2socks(dest: &PathBuf) -> Result<(), String> {
     // Try all mirrors directly first
     for url in &mirrors {
         log::info!("Trying to download tun2socks from {}", url);
-        if let Ok(resp) = client.get(url).header("User-Agent", "FrieRay/0.1").send().await {
+        if let Ok(resp) = client
+            .get(url)
+            .header("User-Agent", "FrieRay/0.1")
+            .send()
+            .await
+        {
             if resp.status().is_success() {
                 success_resp = Some(resp);
                 break;
@@ -364,16 +477,21 @@ async fn download_tun2socks(dest: &PathBuf) -> Result<(), String> {
         log::info!("Direct downloads failed, trying with local proxy...");
         let settings = crate::utils::storage::load_app_settings();
         let proxy_url = format!("socks5h://127.0.0.1:{}", settings.proxy.socks_port);
-        
+
         if let Ok(proxy) = reqwest::Proxy::all(&proxy_url) {
             if let Ok(proxy_client) = reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(30))
                 .redirect(reqwest::redirect::Policy::limited(10))
                 .proxy(proxy)
-                .build() 
+                .build()
             {
                 for url in &mirrors {
-                    if let Ok(resp) = proxy_client.get(url).header("User-Agent", "FrieRay/0.1").send().await {
+                    if let Ok(resp) = proxy_client
+                        .get(url)
+                        .header("User-Agent", "FrieRay/0.1")
+                        .send()
+                        .await
+                    {
                         if resp.status().is_success() {
                             success_resp = Some(resp);
                             break;
@@ -384,21 +502,25 @@ async fn download_tun2socks(dest: &PathBuf) -> Result<(), String> {
         }
     }
 
-    let resp = success_resp.ok_or_else(|| "Все попытки скачивания (прямые и через прокси) не удались".to_string())?;
+    let resp = success_resp
+        .ok_or_else(|| "Все попытки скачивания (прямые и через прокси) не удались".to_string())?;
 
-    let zip_data = resp.bytes().await
+    let zip_data = resp
+        .bytes()
+        .await
         .map_err(|e| format!("Read error: {}", e))?;
 
-    use std::io::{Read, Cursor};
+    use std::io::{Cursor, Read};
     let reader = Cursor::new(zip_data);
-    let mut archive = zip::ZipArchive::new(reader)
-        .map_err(|e| format!("Zip error: {}", e))?;
+    let mut archive = zip::ZipArchive::new(reader).map_err(|e| format!("Zip error: {}", e))?;
 
     let mut binary_data = Vec::new();
-    
+
     // Find the tun2socks binary in the zip (it should be the only file or named matching)
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i).map_err(|e| format!("Zip file error: {}", e))?;
+        let mut file = archive
+            .by_index(i)
+            .map_err(|e| format!("Zip file error: {}", e))?;
         if !file.is_dir() && file.name().contains("tun2socks") {
             file.read_to_end(&mut binary_data)
                 .map_err(|e| format!("Decompress extract error: {}", e))?;
@@ -410,8 +532,7 @@ async fn download_tun2socks(dest: &PathBuf) -> Result<(), String> {
         return Err("Binary not found inside zip archive".to_string());
     }
 
-    std::fs::write(dest, &binary_data)
-        .map_err(|e| format!("Write error: {}", e))?;
+    std::fs::write(dest, &binary_data).map_err(|e| format!("Write error: {}", e))?;
 
     #[cfg(unix)]
     {
@@ -420,6 +541,103 @@ async fn download_tun2socks(dest: &PathBuf) -> Result<(), String> {
             .map_err(|e| format!("chmod error: {}", e))?;
     }
 
-    log::info!("tun2socks downloaded to {:?} ({} bytes)", dest, binary_data.len());
+    log::info!(
+        "tun2socks downloaded to {:?} ({} bytes)",
+        dest,
+        binary_data.len()
+    );
     Ok(())
+}
+
+async fn is_tun_process_alive() -> bool {
+    Command::new("pgrep")
+        .arg("-x")
+        .arg("tun2socks")
+        .output()
+        .await
+        .map(|out| out.status.success())
+        .unwrap_or(false)
+}
+
+async fn get_route_details(target: &str) -> Result<String, String> {
+    let output = Command::new("route")
+        .arg("-n")
+        .arg("get")
+        .arg(target)
+        .output()
+        .await
+        .map_err(|e| format!("Не удалось прочитать маршрут для {}: {}", target, e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(format!(
+            "route get {} завершился ошибкой: {}",
+            target, stderr
+        ));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+fn route_uses_interface(route_output: &str, interface: &str) -> bool {
+    route_output
+        .lines()
+        .any(|line| line.trim() == format!("interface: {}", interface))
+}
+
+fn route_uses_tun(route_output: &str) -> bool {
+    route_uses_gateway(route_output, TUN_REMOTE_IP)
+        || route_uses_interface(route_output, TUN_DEVICE)
+        || route_output
+            .lines()
+            .any(|line| line.trim().starts_with("interface: utun"))
+}
+
+fn route_uses_gateway(route_output: &str, gateway: &str) -> bool {
+    route_output
+        .lines()
+        .any(|line| line.trim() == format!("gateway: {}", gateway))
+}
+
+fn compact_route_details(route_output: &str) -> String {
+    let summary = route_output
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.starts_with("gateway:") || line.starts_with("interface:") {
+                Some(line.to_string())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    if summary.is_empty() {
+        "route get не вернул gateway/interface".into()
+    } else {
+        format!("Найдено: {}", summary)
+    }
+}
+
+fn read_tun_log_tail() -> String {
+    let Ok(content) = std::fs::read_to_string(TUN_LOG_PATH) else {
+        return "Лог tun2socks пуст или недоступен".into();
+    };
+
+    let tail = content
+        .lines()
+        .rev()
+        .take(8)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join(" | ");
+
+    if tail.is_empty() {
+        "Лог tun2socks пуст или недоступен".into()
+    } else {
+        format!("Последние строки tun2socks: {}", tail)
+    }
 }

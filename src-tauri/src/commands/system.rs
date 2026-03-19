@@ -1,6 +1,6 @@
-use tauri::State;
-use crate::AppState;
 use crate::models::settings::AppSettings;
+use crate::AppState;
+use tauri::State;
 
 #[tauri::command]
 pub async fn save_settings(
@@ -14,8 +14,7 @@ pub async fn save_settings(
     let json = serde_json::to_string_pretty(&settings)
         .map_err(|e| format!("Serialization error: {}", e))?;
 
-    std::fs::write(&config_path, json)
-        .map_err(|e| format!("Failed to save settings: {}", e))?;
+    std::fs::write(&config_path, json).map_err(|e| format!("Failed to save settings: {}", e))?;
 
     let mut current = state.settings.lock().await;
     *current = settings;
@@ -26,10 +25,19 @@ pub async fn save_settings(
 /// Install TUN helper (asks password once)
 #[tauri::command]
 pub async fn install_tun_helper(state: State<'_, AppState>) -> Result<(), String> {
-    state.logs.add("info", "Установка TUN helper (требуется пароль)...").await;
+    state
+        .logs
+        .add("info", "Установка TUN helper (требуется пароль)...")
+        .await;
     match state.tun.install_helper().await {
         Ok(()) => {
-            state.logs.add("success", "TUN helper установлен — пароль больше не потребуется").await;
+            state
+                .logs
+                .add(
+                    "success",
+                    "TUN helper установлен — пароль больше не потребуется",
+                )
+                .await;
             Ok(())
         }
         Err(e) => {
@@ -54,8 +62,8 @@ pub async fn load_settings(state: State<'_, AppState>) -> Result<AppSettings, St
     if config_path.exists() {
         let json = std::fs::read_to_string(&config_path)
             .map_err(|e| format!("Failed to read settings: {}", e))?;
-        let settings: AppSettings = serde_json::from_str(&json)
-            .map_err(|e| format!("Settings parse error: {}", e))?;
+        let settings: AppSettings =
+            serde_json::from_str(&json).map_err(|e| format!("Settings parse error: {}", e))?;
 
         let mut current = state.settings.lock().await;
         *current = settings.clone();

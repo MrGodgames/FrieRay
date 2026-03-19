@@ -70,6 +70,8 @@ pub fn parse_vless_url(link: &str) -> Result<Server, String> {
         service_name: params.get("serviceName").cloned(),
         country: None,
         ping: None,
+        speed_mbps: None,
+        reachable: None,
         subscription_id: None,
     };
 

@@ -4,9 +4,9 @@ use std::sync::Arc;
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
+use crate::core::config::generate_xray_config;
 use crate::models::server::Server;
 use crate::models::settings::AppSettings;
-use crate::core::config::generate_xray_config;
 
 /// Manages the Xray-core process lifecycle
 pub struct XrayManager {
@@ -34,9 +34,9 @@ impl XrayManager {
         self.stop().await.ok(); // Don't fail if stop errors
 
         // Generate config
-        let config = generate_xray_config(server, settings);
-        let config_json = serde_json::to_string_pretty(&config)
-            .map_err(|e| format!("Config error: {}", e))?;
+        let config = generate_xray_config(server, settings, 10085);
+        let config_json =
+            serde_json::to_string_pretty(&config).map_err(|e| format!("Config error: {}", e))?;
 
         std::fs::write(&self.config_path, &config_json)
             .map_err(|e| format!("Write config error: {}", e))?;
@@ -80,8 +80,10 @@ impl XrayManager {
                             let mut buf = vec![0u8; 4096];
                             match tokio::time::timeout(
                                 std::time::Duration::from_secs(2),
-                                stderr.read(&mut buf)
-                            ).await {
+                                stderr.read(&mut buf),
+                            )
+                            .await
+                            {
                                 Ok(Ok(n)) => String::from_utf8_lossy(&buf[..n]).to_string(),
                                 _ => String::new(),
                             }
@@ -118,10 +120,7 @@ impl XrayManager {
             log::info!("Stopping xray-core (PID: {:?})...", child.id());
             // Kill and wait with timeout
             let _ = child.kill().await;
-            match tokio::time::timeout(
-                std::time::Duration::from_secs(3),
-                child.wait()
-            ).await {
+            match tokio::time::timeout(std::time::Duration::from_secs(3), child.wait()).await {
                 Ok(_) => log::info!("Xray-core stopped"),
                 Err(_) => log::warn!("Xray-core stop timed out, force killed"),
             }
@@ -147,7 +146,7 @@ impl XrayManager {
     }
 
     /// Find xray binary
-    fn find_xray_binary(&self) -> Result<PathBuf, String> {
+    pub fn find_xray_binary(&self) -> Result<PathBuf, String> {
         if let Ok(exe) = std::env::current_exe() {
             let exe_dir = exe.parent().unwrap_or_else(|| std::path::Path::new("."));
 
@@ -174,9 +173,7 @@ impl XrayManager {
             return Ok(project_bin);
         }
 
-        let config_bin = dirs::config_dir()
-            .unwrap_or_default()
-            .join("frieray/xray");
+        let config_bin = dirs::config_dir().unwrap_or_default().join("frieray/xray");
         if config_bin.exists() {
             return Ok(config_bin);
         }

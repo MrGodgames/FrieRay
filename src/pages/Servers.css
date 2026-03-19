@@ -327,10 +327,19 @@
 
 .server-ping {
     font-family: var(--font-mono);
-    font-size: 0.82rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    min-width: 55px;
+    min-width: 92px;
     text-align: right;
+}
+
+.server-speed {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 92px;
+    text-align: right;
+    color: var(--gold-400);
 }
 
 .server-status-dot {

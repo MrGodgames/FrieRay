@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use serde::{Serialize, Deserialize};
 
 /// In-memory log buffer for the UI
 #[derive(Clone)]

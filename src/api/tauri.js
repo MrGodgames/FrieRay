@@ -30,6 +30,7 @@ export async function setActiveServer(serverId) { return invoke('set_active_serv
 export async function getActiveServer() { return invoke('get_active_server'); }
 export async function pingServer(address, port) { return invoke('ping_server', { address, port }); }
 export async function pingAllServers() { return (await invoke('ping_all_servers')) ?? []; }
+export async function speedTestAllServers() { return (await invoke('speed_test_all_servers')) ?? []; }
 
 // ─── Settings ───
 export async function saveSettings(settings) { return invoke('save_settings', { settings }); }

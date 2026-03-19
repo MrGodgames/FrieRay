@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ConnectButton from '../components/Connection/ConnectButton';
-import Card, { CardHeader, CardBody } from '../components/UI/Card';
+import Card, { CardBody } from '../components/UI/Card';
+import Button from '../components/UI/Button';
 import * as api from '../api/tauri';
 import './Dashboard.css';
 
@@ -19,6 +20,12 @@ function formatBytes(bytes) {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+function formatMbps(mbps) {
+    if (mbps === null || mbps === undefined) return '—';
+    if (mbps < 1) return `${mbps.toFixed(2)} Мбит/с`;
+    return `${mbps.toFixed(1)} Мбит/с`;
+}
+
 export default function Dashboard() {
     const [connected, setConnected] = useState(false);
     const [connecting, setConnecting] = useState(false);
@@ -30,9 +37,10 @@ export default function Dashboard() {
     const [loaded, setLoaded] = useState(false);
     const [traffic, setTraffic] = useState({ down_speed: 0, up_speed: 0, downlink: 0, uplink: 0 });
     const [ping, setPing] = useState(null);
+    const [speedTestMbps, setSpeedTestMbps] = useState(null);
+    const [isTestingSpeed, setIsTestingSpeed] = useState(false);
     const mountedRef = useRef(true);
 
-    // Load state on mount
     useEffect(() => {
         mountedRef.current = true;
         const check = async () => {
@@ -56,10 +64,12 @@ export default function Dashboard() {
         };
         check();
         const interval = setInterval(check, 3000);
-        return () => { mountedRef.current = false; clearInterval(interval); };
+        return () => {
+            mountedRef.current = false;
+            clearInterval(interval);
+        };
     }, []);
 
-    // Poll traffic stats when connected
     useEffect(() => {
         if (!connected) return;
         const poll = async () => {
@@ -73,9 +83,11 @@ export default function Dashboard() {
         return () => clearInterval(interval);
     }, [connected]);
 
-    // Poll ping when connected
     useEffect(() => {
-        if (!connected) { setPing(null); return; }
+        if (!connected) {
+            setPing(null);
+            return;
+        }
         const doPing = async () => {
             const server = currentServer || activeServer;
             if (!server) return;
@@ -89,7 +101,6 @@ export default function Dashboard() {
         return () => clearInterval(interval);
     }, [connected, currentServer, activeServer]);
 
-    // Duration timer
     useEffect(() => {
         if (!connected || !startTime) return;
         const tick = setInterval(() => {
@@ -101,6 +112,19 @@ export default function Dashboard() {
         }, 1000);
         return () => clearInterval(tick);
     }, [connected, startTime]);
+
+    const handleSpeedTest = useCallback(async () => {
+        setError(null);
+        setIsTestingSpeed(true);
+        try {
+            const mbps = await api.speedTest();
+            if (mountedRef.current) setSpeedTestMbps(mbps);
+        } catch (e) {
+            if (mountedRef.current) setError(String(e));
+        } finally {
+            if (mountedRef.current) setIsTestingSpeed(false);
+        }
+    }, []);
 
     const handleToggle = useCallback(async () => {
         setError(null);
@@ -114,6 +138,7 @@ export default function Dashboard() {
                 setStartTime(null);
                 setDuration('00:00:00');
                 setTraffic({ down_speed: 0, up_speed: 0, downlink: 0, uplink: 0 });
+                setSpeedTestMbps(null);
             } catch (e) {
                 setError(String(e));
             } finally {
@@ -138,6 +163,7 @@ export default function Dashboard() {
             setConnected(true);
             setCurrentServer(server);
             setStartTime(Date.now());
+            setSpeedTestMbps(null);
         } catch (e) {
             setError(String(e));
             setConnected(false);
@@ -147,8 +173,9 @@ export default function Dashboard() {
     }, [connected, activeServer]);
 
     const displayServer = currentServer || activeServer;
-
-    const pingColor = ping !== null ? (ping < 100 ? 'var(--accent-400)' : ping < 200 ? 'var(--gold-400)' : 'var(--danger)') : 'var(--info)';
+    const pingColor = ping !== null
+        ? (ping < 100 ? 'var(--accent-400)' : ping < 200 ? 'var(--gold-400)' : 'var(--danger)')
+        : 'var(--info)';
 
     const stats = [
         { label: 'Загрузка', value: connected ? formatSpeed(traffic.down_speed) : '—', icon: '↓', color: 'var(--accent-400)' },
@@ -207,6 +234,12 @@ export default function Dashboard() {
                                     {connected ? '✦ Связь установлена ✦' : connecting ? '◌ Плетение заклинания...' : '○ Магия в покое'}
                                 </span>
                             </div>
+                            <div className="server-info-row">
+                                <span className="server-info-label">✦ Сеанс</span>
+                                <span className="server-info-value server-info-mono">
+                                    {connected ? duration : '00:00:00'}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -226,7 +259,33 @@ export default function Dashboard() {
                 ))}
             </div>
 
-
+            <Card variant="glass" hover={false} className="dashboard-speed-test fantasy-border">
+                <CardBody>
+                    <div className="dashboard-speed-test-row">
+                        <div className="dashboard-speed-test-copy">
+                            <span className="dashboard-speed-test-label">Тест скорости сервера</span>
+                            <span className="dashboard-speed-test-value">
+                                {connected ? formatMbps(speedTestMbps) : 'Подключитесь к серверу'}
+                            </span>
+                            <span className="dashboard-speed-test-hint">
+                                {connected
+                                    ? 'Ручная проверка через текущий прокси. Удобно, когда live-скорость ещё ничего не показывает.'
+                                    : 'После подключения можно запустить тест канала отдельно от обычного ping.'}
+                            </span>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleSpeedTest}
+                            loading={isTestingSpeed}
+                            disabled={!connected}
+                            icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4" /><path d="M12 18v4" /><path d="M4.93 4.93l2.83 2.83" /><path d="M16.24 16.24l2.83 2.83" /><path d="M2 12h4" /><path d="M18 12h4" /><path d="M4.93 19.07l2.83-2.83" /><path d="M16.24 7.76l2.83-2.83" /></svg>}
+                        >
+                            Проверить скорость
+                        </Button>
+                    </div>
+                </CardBody>
+            </Card>
         </div>
     );
 }

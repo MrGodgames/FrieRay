@@ -1,6 +1,9 @@
 use crate::models::server::{Protocol, Server, Subscription};
 use crate::utils::vless;
-use base64::{engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD}, Engine};
+use base64::{
+    engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD},
+    Engine,
+};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -45,7 +48,10 @@ pub async fn fetch_subscription(sub: &Subscription) -> Result<Vec<Server>, Strin
 }
 
 /// Parse subscription content (base64 encoded or plain text)
-pub fn parse_subscription_content(content: &str, subscription_id: &str) -> Result<Vec<Server>, String> {
+pub fn parse_subscription_content(
+    content: &str,
+    subscription_id: &str,
+) -> Result<Vec<Server>, String> {
     let content = content.trim();
 
     if content.is_empty() {
@@ -53,8 +59,7 @@ pub fn parse_subscription_content(content: &str, subscription_id: &str) -> Resul
     }
 
     // Determine if content is base64 or plain text
-    let decoded_content = try_base64_decode(content)
-        .unwrap_or_else(|| content.to_string());
+    let decoded_content = try_base64_decode(content).unwrap_or_else(|| content.to_string());
 
     let preview = &decoded_content[..decoded_content.len().min(300)];
     log::info!("Decoded content preview: {}", preview);
@@ -97,22 +102,30 @@ fn try_base64_decode(content: &str) -> Option<String> {
     let try_decode = |data: &str| -> Option<String> {
         if let Ok(bytes) = STANDARD.decode(data) {
             if let Ok(text) = String::from_utf8(bytes) {
-                if text.contains("://") { return Some(text); }
+                if text.contains("://") {
+                    return Some(text);
+                }
             }
         }
         if let Ok(bytes) = STANDARD_NO_PAD.decode(data) {
             if let Ok(text) = String::from_utf8(bytes) {
-                if text.contains("://") { return Some(text); }
+                if text.contains("://") {
+                    return Some(text);
+                }
             }
         }
         if let Ok(bytes) = URL_SAFE.decode(data) {
             if let Ok(text) = String::from_utf8(bytes) {
-                if text.contains("://") { return Some(text); }
+                if text.contains("://") {
+                    return Some(text);
+                }
             }
         }
         if let Ok(bytes) = URL_SAFE_NO_PAD.decode(data) {
             if let Ok(text) = String::from_utf8(bytes) {
-                if text.contains("://") { return Some(text); }
+                if text.contains("://") {
+                    return Some(text);
+                }
             }
         }
         None
@@ -141,17 +154,17 @@ fn try_base64_decode(content: &str) -> Option<String> {
 fn parse_vmess_url(link: &str) -> Result<Server, String> {
     let data = link.strip_prefix("vmess://").ok_or("Not vmess")?;
 
-    let decoded = try_base64_decode_single(data)
-        .ok_or("Failed to decode vmess base64")?;
+    let decoded = try_base64_decode_single(data).ok_or("Failed to decode vmess base64")?;
 
-    let json: Value = serde_json::from_str(&decoded)
-        .map_err(|e| format!("vmess JSON parse error: {}", e))?;
+    let json: Value =
+        serde_json::from_str(&decoded).map_err(|e| format!("vmess JSON parse error: {}", e))?;
 
     let server = Server {
         id: Uuid::new_v4().to_string(),
         name: json["ps"].as_str().unwrap_or("vmess server").to_string(),
         address: json["add"].as_str().unwrap_or("").to_string(),
-        port: json["port"].as_str()
+        port: json["port"]
+            .as_str()
             .and_then(|p| p.parse().ok())
             .or_else(|| json["port"].as_u64().map(|p| p as u16))
             .unwrap_or(443),
@@ -170,6 +183,8 @@ fn parse_vmess_url(link: &str) -> Result<Server, String> {
         service_name: None,
         country: None,
         ping: None,
+        speed_mbps: None,
+        reachable: None,
         subscription_id: None,
     };
 
@@ -182,7 +197,10 @@ fn parse_trojan_url(link: &str) -> Result<Server, String> {
     let rest = link.strip_prefix("trojan://").ok_or("Not trojan")?;
 
     let (url_part, fragment) = match rest.split_once('#') {
-        Some((u, f)) => (u, Some(urlencoding::decode(f).unwrap_or_default().to_string())),
+        Some((u, f)) => (
+            u,
+            Some(urlencoding::decode(f).unwrap_or_default().to_string()),
+        ),
         None => (rest, None),
     };
 
@@ -214,7 +232,10 @@ fn parse_trojan_url(link: &str) -> Result<Server, String> {
         encryption: "none".into(),
         flow: None,
         network: params.get("type").cloned().unwrap_or_else(|| "tcp".into()),
-        security: params.get("security").cloned().unwrap_or_else(|| "tls".into()),
+        security: params
+            .get("security")
+            .cloned()
+            .unwrap_or_else(|| "tls".into()),
         sni: params.get("sni").cloned(),
         fingerprint: params.get("fp").cloned(),
         public_key: None,
@@ -224,6 +245,8 @@ fn parse_trojan_url(link: &str) -> Result<Server, String> {
         service_name: None,
         country: None,
         ping: None,
+        speed_mbps: None,
+        reachable: None,
         subscription_id: None,
     })
 }
@@ -233,7 +256,10 @@ fn parse_ss_url(link: &str) -> Result<Server, String> {
     let rest = link.strip_prefix("ss://").ok_or("Not ss")?;
 
     let (encoded_part, fragment) = match rest.split_once('#') {
-        Some((e, f)) => (e, Some(urlencoding::decode(f).unwrap_or_default().to_string())),
+        Some((e, f)) => (
+            e,
+            Some(urlencoding::decode(f).unwrap_or_default().to_string()),
+        ),
         None => (rest, None),
     };
 
@@ -242,7 +268,8 @@ fn parse_ss_url(link: &str) -> Result<Server, String> {
         let decoded = try_base64_decode_single(b64).unwrap_or_else(|| b64.to_string());
         (decoded, Some(hp.to_string()))
     } else {
-        let decoded = try_base64_decode_single(encoded_part).unwrap_or_else(|| encoded_part.to_string());
+        let decoded =
+            try_base64_decode_single(encoded_part).unwrap_or_else(|| encoded_part.to_string());
         (decoded, None)
     };
 
@@ -258,7 +285,9 @@ fn parse_ss_url(link: &str) -> Result<Server, String> {
         (mp.to_string(), host.to_string(), port)
     };
 
-    let (method, password) = method_pass.split_once(':').unwrap_or(("aes-256-gcm", &method_pass));
+    let (method, password) = method_pass
+        .split_once(':')
+        .unwrap_or(("aes-256-gcm", &method_pass));
 
     Ok(Server {
         id: Uuid::new_v4().to_string(),
@@ -280,6 +309,8 @@ fn parse_ss_url(link: &str) -> Result<Server, String> {
         service_name: None,
         country: None,
         ping: None,
+        speed_mbps: None,
+        reachable: None,
         subscription_id: None,
     })
 }
@@ -297,16 +328,24 @@ fn try_base64_decode_single(data: &str) -> Option<String> {
         };
 
         if let Ok(bytes) = STANDARD.decode(&input) {
-            if let Ok(text) = String::from_utf8(bytes) { return Some(text); }
+            if let Ok(text) = String::from_utf8(bytes) {
+                return Some(text);
+            }
         }
         if let Ok(bytes) = STANDARD_NO_PAD.decode(&input) {
-            if let Ok(text) = String::from_utf8(bytes) { return Some(text); }
+            if let Ok(text) = String::from_utf8(bytes) {
+                return Some(text);
+            }
         }
         if let Ok(bytes) = URL_SAFE.decode(&input) {
-            if let Ok(text) = String::from_utf8(bytes) { return Some(text); }
+            if let Ok(text) = String::from_utf8(bytes) {
+                return Some(text);
+            }
         }
         if let Ok(bytes) = URL_SAFE_NO_PAD.decode(&input) {
-            if let Ok(text) = String::from_utf8(bytes) { return Some(text); }
+            if let Ok(text) = String::from_utf8(bytes) {
+                return Some(text);
+            }
         }
     }
 
