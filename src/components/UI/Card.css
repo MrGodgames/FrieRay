@@ -1,0 +1,49 @@
+.fr-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    overflow: visible;
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.fr-card-glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-color: var(--glass-border);
+}
+
+.fr-card-glow {
+    box-shadow: var(--shadow-glow);
+}
+
+.fr-card-header {
+    padding: var(--space-lg) var(--space-lg) var(--space-sm);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+}
+
+.fr-card-header h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.fr-card-body {
+    padding: var(--space-sm) var(--space-lg) var(--space-lg);
+}
+
+.fr-card-footer {
+    padding: var(--space-sm) var(--space-lg) var(--space-lg);
+    border-top: 1px solid var(--border);
+}
+
+.fr-card:hover {
+    border-color: rgba(139, 106, 255, 0.2);
+    box-shadow: 0 0 20px rgba(139, 106, 255, 0.05);
+}

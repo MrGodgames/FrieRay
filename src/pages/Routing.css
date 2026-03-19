@@ -1,0 +1,70 @@
+.routing-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.routing-actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.routing-rules {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.rule-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-md) var(--space-lg);
+}
+
+.rule-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    flex: 1;
+    min-width: 0;
+}
+
+.rule-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.rule-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+}
+
+.rule-value {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rule-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    flex-shrink: 0;
+}
+
+.rule-action-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border: 1px solid transparent;
+}

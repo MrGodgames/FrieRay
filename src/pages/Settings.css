@@ -1,0 +1,91 @@
+.settings-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.settings-section-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.settings-list>*:not(:last-child) {
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--border);
+}
+
+/* Input */
+.settings-input-group {
+    display: flex;
+    gap: var(--space-md);
+}
+
+.settings-input-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.settings-input-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.fr-input-sm {
+    padding: 7px 10px;
+    width: 120px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+}
+
+/* About */
+.about-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-xs);
+    padding: var(--space-lg) 0;
+}
+
+.about-logo {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.about-version {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.about-desc {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-style: italic;
+    margin-top: var(--space-sm);
+}
+
+.about-tech {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}

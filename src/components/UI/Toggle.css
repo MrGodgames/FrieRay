@@ -1,0 +1,63 @@
+.fr-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    cursor: pointer;
+    padding: var(--space-sm) 0;
+}
+
+.fr-toggle-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.fr-toggle-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.fr-toggle-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.fr-toggle-input {
+    display: none;
+}
+
+.fr-toggle-track-wrapper {
+    flex-shrink: 0;
+}
+
+.fr-toggle-track {
+    width: 44px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    background: var(--border);
+    position: relative;
+    transition: all var(--transition-fast);
+}
+
+.fr-toggle-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    transition: all var(--transition-fast);
+}
+
+.fr-toggle-input:checked+.fr-toggle-track {
+    background: linear-gradient(135deg, var(--primary-500), var(--accent-500));
+}
+
+.fr-toggle-input:checked+.fr-toggle-track .fr-toggle-thumb {
+    transform: translateX(20px);
+    background: #fff;
+    box-shadow: 0 0 8px rgba(45, 232, 160, 0.4);
+}

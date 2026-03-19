@@ -1,0 +1,185 @@
+.app-layout {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+}
+
+/* ─── CSS-only gradient background ─── */
+.app-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    overflow: hidden;
+    background: var(--bg-gradient);
+}
+
+/* Fantasy background image overlay */
+.app-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('../../assets/images/background.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.06;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Subtle star-like dots via radial gradients */
+.app-bg-stars {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+        radial-gradient(1px 1px at 10% 15%, rgba(139, 106, 255, 0.35) 0%, transparent 100%),
+        radial-gradient(1px 1px at 25% 40%, rgba(45, 232, 160, 0.3) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 50% 10%, rgba(139, 106, 255, 0.25) 0%, transparent 100%),
+        radial-gradient(1px 1px at 70% 30%, rgba(45, 232, 160, 0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 85% 55%, rgba(139, 106, 255, 0.3) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 40% 70%, rgba(45, 232, 160, 0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 60% 85%, rgba(139, 106, 255, 0.25) 0%, transparent 100%),
+        radial-gradient(1px 1px at 90% 80%, rgba(45, 232, 160, 0.3) 0%, transparent 100%),
+        radial-gradient(1px 1px at 15% 90%, rgba(139, 106, 255, 0.2) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 35% 25%, rgba(255, 202, 40, 0.15) 0%, transparent 100%),
+        radial-gradient(1px 1px at 75% 65%, rgba(255, 202, 40, 0.1) 0%, transparent 100%),
+        radial-gradient(1px 1px at 5% 50%, rgba(139, 106, 255, 0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 95% 20%, rgba(45, 232, 160, 0.25) 0%, transparent 100%),
+        radial-gradient(1px 1px at 55% 45%, rgba(139, 106, 255, 0.15) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 20% 60%, rgba(45, 232, 160, 0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 80% 10%, rgba(139, 106, 255, 0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 45% 95%, rgba(45, 232, 160, 0.15) 0%, transparent 100%);
+    animation: shimmer 30s ease-in-out infinite alternate;
+}
+
+.main-content {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 100vh;
+}
+
+.main-content-inner {
+    padding: var(--space-xl) var(--space-2xl);
+    max-width: 1100px;
+    width: 100%;
+}
+
+/* Page header */
+.page-header {
+    margin-bottom: var(--space-xl);
+    position: relative;
+}
+
+.page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: var(--space-xs);
+    letter-spacing: 0.05em;
+}
+
+.page-header p {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+/* Ornamental header underline */
+.page-header::after {
+    content: '━━━ ✦ ━━━';
+    display: block;
+    margin-top: var(--space-md);
+    font-size: 0.7rem;
+    color: var(--primary-400);
+    opacity: 0.4;
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 10px var(--accent-400);
+}
+
+/* Card grid */
+.card-grid {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.card-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.card-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 900px) {
+
+    .card-grid-2,
+    .card-grid-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ─── Frieren Character Decoration ─── */
+.character-decoration {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.character-img {
+    width: 260px;
+    height: auto;
+    opacity: 0.45;
+    filter: drop-shadow(0 0 15px rgba(45, 232, 160, 0.15));
+    animation: floatSlow 8s ease-in-out infinite;
+    transition: opacity 0.6s ease, filter 0.6s ease, transform 0.6s ease;
+    cursor: default;
+}
+
+[data-theme="light"] .character-img {
+    opacity: 0.35;
+}
+
+.character-decoration:hover .character-img {
+    opacity: 0.55;
+    filter: drop-shadow(0 0 30px rgba(45, 232, 160, 0.3)) drop-shadow(0 0 60px rgba(139, 106, 255, 0.15));
+    transform: scale(1.03);
+}
+
+.character-glow {
+    width: 100px;
+    height: 12px;
+    margin-top: -20px;
+    background: radial-gradient(ellipse, rgba(45, 232, 160, 0.12), transparent 70%);
+    border-radius: 50%;
+    animation: pulse-glow 4s ease-in-out infinite;
+    transition: opacity 0.6s ease;
+}
+
+.character-decoration:hover .character-glow {
+    opacity: 1.5;
+    background: radial-gradient(ellipse, rgba(45, 232, 160, 0.25), transparent 70%);
+}
+
+/* Hide character on smaller windows */
+@media (max-width: 1100px) {
+    .character-decoration {
+        display: none;
+    }
+}

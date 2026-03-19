@@ -1,0 +1,116 @@
+.logs-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.logs-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.logs-filters {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+.log-filter-btn {
+    padding: 5px 13px;
+    border-radius: var(--radius-full);
+    background: rgba(139, 106, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    letter-spacing: 0.02em;
+}
+
+.log-filter-btn:hover {
+    background: rgba(139, 106, 255, 0.08);
+    border-color: var(--border-hover);
+    color: var(--text-secondary);
+}
+
+.log-filter-btn.active {
+    background: rgba(139, 106, 255, 0.12);
+    border-color: rgba(139, 106, 255, 0.3);
+    color: var(--primary-300);
+    box-shadow: 0 0 10px rgba(139, 106, 255, 0.08);
+}
+
+.logs-card {
+    flex: 1;
+}
+
+.logs-container {
+    max-height: 500px;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+}
+
+.log-entry {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(139, 106, 255, 0.04);
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.log-time {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    font-size: 0.7rem;
+}
+
+.log-badge {
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    flex-shrink: 0;
+    min-width: 50px;
+    text-align: center;
+    letter-spacing: 0.03em;
+}
+
+.log-level-info .log-badge {
+    background: rgba(107, 197, 255, 0.08);
+    color: var(--info);
+}
+
+.log-level-success .log-badge {
+    background: rgba(45, 232, 160, 0.08);
+    color: var(--accent-400);
+}
+
+.log-level-warn .log-badge {
+    background: rgba(255, 200, 87, 0.08);
+    color: var(--warning);
+}
+
+.log-level-error .log-badge {
+    background: rgba(255, 107, 138, 0.08);
+    color: var(--error);
+}
+
+.log-message {
+    color: var(--text-secondary);
+    word-break: break-all;
+}
+
+.logs-empty {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--text-muted);
+    font-style: italic;
+}
