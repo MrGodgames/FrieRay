@@ -3,6 +3,7 @@ import ConnectButton from '../components/Connection/ConnectButton';
 import Card, { CardBody } from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import * as api from '../api/tauri';
+import { useTheme } from '../hooks/useTheme';
 import './Dashboard.css';
 
 function formatSpeed(bytesPerSec) {
@@ -27,6 +28,8 @@ function formatMbps(mbps) {
 }
 
 export default function Dashboard() {
+    const { visualStyle } = useTheme();
+    const isStrict = visualStyle === 'strict';
     const [connected, setConnected] = useState(false);
     const [connecting, setConnecting] = useState(false);
     const [currentServer, setCurrentServer] = useState(null);
@@ -188,7 +191,7 @@ export default function Dashboard() {
         <div className="dashboard">
             <div className="page-header">
                 <h1><span className="text-gradient">Панель Управления</span></h1>
-                <p>Магия связи в твоих руках</p>
+                <p>{isStrict ? 'Управление защищённым подключением' : 'Магия связи в твоих руках'}</p>
             </div>
 
             {error && (
@@ -209,13 +212,13 @@ export default function Dashboard() {
 
                         <div className="dashboard-server-info">
                             <div className="server-info-row">
-                                <span className="server-info-label">✦ Сервер</span>
+                                <span className="server-info-label">{isStrict ? 'Сервер' : '✦ Сервер'}</span>
                                 <span className="server-info-value">
                                     {displayServer ? displayServer.name : (loaded ? 'Не выбран — перейдите в «Серверы»' : 'Загрузка...')}
                                 </span>
                             </div>
                             <div className="server-info-row">
-                                <span className="server-info-label">✦ Протокол</span>
+                                <span className="server-info-label">{isStrict ? 'Протокол' : '✦ Протокол'}</span>
                                 <span className="server-info-value">
                                     {displayServer
                                         ? (typeof displayServer.protocol === 'string' ? displayServer.protocol.toUpperCase() : 'VLESS')
@@ -223,19 +226,21 @@ export default function Dashboard() {
                                 </span>
                             </div>
                             <div className="server-info-row">
-                                <span className="server-info-label">✦ Адрес</span>
+                                <span className="server-info-label">{isStrict ? 'Адрес' : '✦ Адрес'}</span>
                                 <span className="server-info-value server-info-mono">
                                     {displayServer ? `${displayServer.address}:${displayServer.port}` : '—'}
                                 </span>
                             </div>
                             <div className="server-info-row">
-                                <span className="server-info-label">✦ Статус</span>
+                                <span className="server-info-label">{isStrict ? 'Статус' : '✦ Статус'}</span>
                                 <span className={`server-info-value status-${connected ? 'connected' : connecting ? 'connecting' : 'disconnected'}`}>
-                                    {connected ? '✦ Связь установлена ✦' : connecting ? '◌ Плетение заклинания...' : '○ Магия в покое'}
+                                    {isStrict
+                                        ? (connected ? 'Канал активен' : connecting ? 'Подключение...' : 'Отключено')
+                                        : (connected ? '✦ Связь установлена ✦' : connecting ? '◌ Плетение заклинания...' : '○ Магия в покое')}
                                 </span>
                             </div>
                             <div className="server-info-row">
-                                <span className="server-info-label">✦ Сеанс</span>
+                                <span className="server-info-label">{isStrict ? 'Сеанс' : '✦ Сеанс'}</span>
                                 <span className="server-info-value server-info-mono">
                                     {connected ? duration : '00:00:00'}
                                 </span>

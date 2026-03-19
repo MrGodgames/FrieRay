@@ -120,6 +120,11 @@
     opacity: 0.5;
 }
 
+[data-ui-style="strict"] .split-category-title::before {
+    content: '';
+    display: none;
+}
+
 .split-category-apps {
     display: flex;
     flex-direction: column;

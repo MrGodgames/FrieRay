@@ -61,3 +61,28 @@
     background: #fff;
     box-shadow: 0 0 8px rgba(45, 232, 160, 0.4);
 }
+
+[data-ui-style="strict"] .fr-toggle-label {
+    letter-spacing: 0.03em;
+}
+
+[data-ui-style="strict"] .fr-toggle-desc {
+    max-width: 440px;
+}
+
+[data-ui-style="strict"] .fr-toggle-track {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border);
+}
+
+[data-ui-style="strict"] .fr-toggle-thumb {
+    background: var(--primary-400);
+}
+
+[data-ui-style="strict"] .fr-toggle-input:checked+.fr-toggle-track {
+    background: linear-gradient(135deg, var(--primary-700), var(--accent-600));
+}
+
+[data-ui-style="strict"] .fr-toggle-input:checked+.fr-toggle-track .fr-toggle-thumb {
+    box-shadow: none;
+}

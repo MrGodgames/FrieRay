@@ -60,31 +60,38 @@ const navItems = [
 ];
 
 export default function Sidebar() {
-    const { theme, toggleTheme } = useTheme();
+    const { theme, toggleTheme, visualStyle } = useTheme();
     const location = useLocation();
+    const isStrict = visualStyle === 'strict';
 
     return (
         <aside className="sidebar">
-            {/* Logo area with character */}
             <div className="sidebar-header">
-                <div className="sidebar-character-wrapper">
-                    <img src={characterImg} alt="FrieRay" className="sidebar-character" />
-                    <div className="sidebar-character-glow" />
-                </div>
+                {!isStrict ? (
+                    <div className="sidebar-character-wrapper">
+                        <img src={characterImg} alt="FrieRay" className="sidebar-character" />
+                        <div className="sidebar-character-glow" />
+                    </div>
+                ) : (
+                    <div className="sidebar-emblem" aria-hidden="true">
+                        <span className="sidebar-emblem-mark">FR</span>
+                        <span className="sidebar-emblem-line" />
+                    </div>
+                )}
                 <div className="sidebar-logo">
                     <span className="sidebar-logo-name text-gradient">FrieRay</span>
-                    <span className="sidebar-logo-subtitle">✦ V2Ray Client ✦</span>
+                    <span className="sidebar-logo-subtitle">
+                        {isStrict ? 'SECURE ROUTING CONSOLE' : '✦ V2Ray Client ✦'}
+                    </span>
                 </div>
             </div>
 
-            {/* Ornamental divider */}
             <div className="sidebar-divider">
                 <span className="sidebar-divider-line" />
-                <span className="sidebar-divider-diamond">◆</span>
+                <span className="sidebar-divider-diamond">{isStrict ? '■' : '◆'}</span>
                 <span className="sidebar-divider-line" />
             </div>
 
-            {/* Navigation */}
             <nav className="sidebar-nav">
                 {navItems.map(item => (
                     <NavLink
@@ -99,18 +106,17 @@ export default function Sidebar() {
                         )}
                         <span className="sidebar-nav-icon">{item.icon}</span>
                         <span className="sidebar-nav-label">{item.label}</span>
-                        {item.path === location.pathname && (
+                        {!isStrict && item.path === location.pathname && (
                             <span className="sidebar-nav-sparkle">✦</span>
                         )}
                     </NavLink>
                 ))}
             </nav>
 
-            {/* Footer */}
             <div className="sidebar-footer">
                 <div className="sidebar-divider">
                     <span className="sidebar-divider-line" />
-                    <span className="sidebar-divider-diamond">◆</span>
+                    <span className="sidebar-divider-diamond">{isStrict ? '■' : '◆'}</span>
                     <span className="sidebar-divider-line" />
                 </div>
                 <button className="theme-toggle" onClick={toggleTheme} title="Переключить тему">
@@ -133,7 +139,7 @@ export default function Sidebar() {
                     )}
                     <span>{theme === 'dark' ? 'День' : 'Ночь'}</span>
                 </button>
-                <div className="sidebar-version">v0.1.0</div>
+                <div className="sidebar-version">{isStrict ? 'STRICT PROFILE' : 'v0.1.0'}</div>
             </div>
         </aside>
     );

@@ -3,9 +3,12 @@ import Card, { CardHeader, CardBody } from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Toggle from '../components/UI/Toggle';
 import * as api from '../api/tauri';
+import { useTheme } from '../hooks/useTheme';
 import './Servers.css';
 
 export default function Servers() {
+    const { visualStyle } = useTheme();
+    const isStrict = visualStyle === 'strict';
     const [servers, setServers] = useState([]);
     const [activeServerId, setActiveServerId] = useState(null);
     const [subscriptions, setSubscriptions] = useState([]);
@@ -184,7 +187,7 @@ export default function Servers() {
             {/* === SUBSCRIPTIONS === */}
             <div className="servers-section">
                 <div className="servers-section-header">
-                    <h3 className="servers-section-title">✦ Подписки</h3>
+                    <h3 className="servers-section-title">{isStrict ? 'Подписки' : '✦ Подписки'}</h3>
                     <Button variant="primary" size="sm" onClick={() => setShowAddSub(!showAddSub)}
                         icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}>
                         Добавить
@@ -263,7 +266,7 @@ export default function Servers() {
             {/* === SERVERS === */}
             <div className="servers-section">
                 <div className="servers-section-header">
-                    <h3 className="servers-section-title">✦ Список серверов ({servers.length})</h3>
+                    <h3 className="servers-section-title">{isStrict ? `Список серверов (${servers.length})` : `✦ Список серверов (${servers.length})`}</h3>
                     <div className="servers-section-actions">
                         <Button variant="secondary" size="sm" loading={isPinging} onClick={handlePingAll}
                             icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>}>

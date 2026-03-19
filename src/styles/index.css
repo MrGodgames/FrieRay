@@ -1,9 +1,4 @@
-/* ============================================
-   FrieRay Design System
-   Inspired by "Frieren: Beyond Journey's End"
-   ============================================ */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Cinzel:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Cinzel:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 /* ---- CSS Variables ---- */
 :root {
@@ -159,6 +154,88 @@
   color-scheme: light;
 }
 
+[data-ui-style="strict"] {
+  --primary-300: #cfd6df;
+  --primary-400: #98a5b3;
+  --primary-500: #718192;
+  --primary-600: #546171;
+  --primary-700: #3d4754;
+  --accent-300: #d9d3c2;
+  --accent-400: #b9aa88;
+  --accent-500: #98835f;
+  --accent-600: #756447;
+  --accent-700: #564a34;
+  --success: #8ec4a9;
+  --warning: #d3a86f;
+  --error: #d07a7a;
+  --info: #87a9c7;
+  --font-heading: 'Space Grotesk', sans-serif;
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-display: 'Space Grotesk', sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-glow: 0 0 0 transparent;
+  --shadow-glow-accent: 0 0 0 transparent;
+  --shadow-glow-gold: 0 0 0 transparent;
+  --transition-normal: 180ms ease;
+  --transition-slow: 240ms ease;
+  --ornament-color: rgba(152, 165, 179, 0.18);
+  --ornament-glow: rgba(185, 170, 136, 0.08);
+}
+
+[data-theme="dark"][data-ui-style="strict"] {
+  --bg: #080b0f;
+  --bg-gradient:
+    radial-gradient(circle at top right, rgba(185, 170, 136, 0.08), transparent 28%),
+    linear-gradient(180deg, #080b0f 0%, #0d1116 50%, #11161d 100%);
+  --surface: rgba(12, 16, 21, 0.9);
+  --surface-hover: rgba(20, 25, 32, 0.96);
+  --card: rgba(13, 18, 24, 0.82);
+  --card-hover: rgba(18, 24, 31, 0.92);
+  --border: rgba(152, 165, 179, 0.16);
+  --border-hover: rgba(185, 170, 136, 0.28);
+  --border-gold: rgba(185, 170, 136, 0.22);
+  --text-primary: #edf0f4;
+  --text-secondary: #adb7c1;
+  --text-muted: #76818d;
+  --glass-bg: linear-gradient(180deg, rgba(12, 16, 21, 0.9), rgba(15, 20, 26, 0.84));
+  --glass-border: rgba(152, 165, 179, 0.16);
+  --glass-shadow: 0 16px 48px rgba(0, 0, 0, 0.32);
+  --sidebar-bg: rgba(8, 11, 15, 0.94);
+  --sidebar-border: rgba(152, 165, 179, 0.14);
+  --scrollbar-thumb: rgba(152, 165, 179, 0.22);
+  --scrollbar-track: rgba(15, 20, 26, 0.6);
+  color-scheme: dark;
+}
+
+[data-theme="light"][data-ui-style="strict"] {
+  --bg: #e7eaee;
+  --bg-gradient:
+    radial-gradient(circle at top right, rgba(117, 100, 71, 0.1), transparent 30%),
+    linear-gradient(180deg, #eef1f4 0%, #e7eaee 55%, #dde1e6 100%);
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-hover: rgba(247, 248, 250, 0.96);
+  --card: rgba(255, 255, 255, 0.8);
+  --card-hover: rgba(248, 249, 251, 0.92);
+  --border: rgba(61, 71, 84, 0.14);
+  --border-hover: rgba(117, 100, 71, 0.22);
+  --border-gold: rgba(117, 100, 71, 0.18);
+  --text-primary: #13181f;
+  --text-secondary: #48515c;
+  --text-muted: #69737f;
+  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(241, 243, 246, 0.9));
+  --glass-border: rgba(61, 71, 84, 0.12);
+  --glass-shadow: 0 16px 40px rgba(39, 48, 59, 0.08);
+  --sidebar-bg: rgba(242, 244, 247, 0.95);
+  --sidebar-border: rgba(61, 71, 84, 0.12);
+  --scrollbar-thumb: rgba(61, 71, 84, 0.22);
+  --scrollbar-track: rgba(221, 225, 230, 0.6);
+  color-scheme: light;
+}
+
 /* ============================================
    Reset & Base
    ============================================ */
@@ -226,6 +303,10 @@ a {
 
 a:hover {
   color: var(--accent-400);
+}
+
+[data-ui-style="strict"] a:hover {
+  color: var(--text-primary);
 }
 
 code,
@@ -334,11 +415,39 @@ pre {
   right: 8px;
 }
 
+[data-ui-style="strict"] .ornament-divider .ornament-symbol,
+[data-ui-style="strict"] .corner-ornaments::before,
+[data-ui-style="strict"] .corner-ornaments::after {
+  content: '';
+  display: none;
+}
+
+[data-ui-style="strict"] .fantasy-border {
+  border-color: var(--glass-border);
+  background-image:
+    linear-gradient(90deg, transparent 0%, rgba(185, 170, 136, 0.12) 50%, transparent 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  background-position: top left;
+}
+
+[data-ui-style="strict"] .fantasy-border::before,
+[data-ui-style="strict"] .fantasy-border::after {
+  display: none;
+}
+
 /* ============================================
    Utility Classes
    ============================================ */
 .text-gradient {
   background: linear-gradient(135deg, var(--primary-300), var(--accent-400));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-ui-style="strict"] .text-gradient {
+  background: linear-gradient(135deg, var(--text-primary), var(--primary-400));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -371,6 +480,10 @@ pre {
 ::selection {
   background: rgba(139, 106, 255, 0.3);
   color: var(--text-primary);
+}
+
+[data-ui-style="strict"] ::selection {
+  background: rgba(152, 165, 179, 0.28);
 }
 
 /* Disable text selection on drag areas */

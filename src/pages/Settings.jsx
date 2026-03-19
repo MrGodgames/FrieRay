@@ -3,9 +3,12 @@ import Card, { CardHeader, CardBody } from '../components/UI/Card';
 import Toggle from '../components/UI/Toggle';
 import Button from '../components/UI/Button';
 import * as api from '../api/tauri';
+import { useTheme } from '../hooks/useTheme';
 import './Settings.css';
 
 export default function Settings() {
+    const { visualStyle, setVisualStyle } = useTheme();
+    const isStrict = visualStyle === 'strict';
     const [settings, setSettings] = useState({
         general: { auto_connect: false, start_minimized: false, auto_update_subs: true, auto_update_interval_hours: 6 },
         proxy: { system_proxy: true, tun_mode: false, socks_port: 10808, http_port: 10809 },
@@ -66,9 +69,26 @@ export default function Settings() {
                 <p>Конфигурация приложения</p>
             </div>
 
+            <div className="settings-section">
+                <h4 className="settings-section-title">{isStrict ? 'Интерфейс' : '✦ Интерфейс'}</h4>
+                <Card variant="glass" hover={false}>
+                    <CardBody>
+                        <div className="settings-list">
+                            <Toggle
+                                id="strict-interface"
+                                label="Строгая тема"
+                                description="Убирает персонажей, фэнтези-декор и включает сдержанный интерфейс"
+                                checked={isStrict}
+                                onChange={(value) => setVisualStyle(value ? 'strict' : 'fantasy')}
+                            />
+                        </div>
+                    </CardBody>
+                </Card>
+            </div>
+
             {/* General */}
             <div className="settings-section">
-                <h4 className="settings-section-title">✦ Общие</h4>
+                <h4 className="settings-section-title">{isStrict ? 'Общие' : '✦ Общие'}</h4>
                 <Card variant="glass" hover={false}>
                     <CardBody>
                         <div className="settings-list">
@@ -100,7 +120,7 @@ export default function Settings() {
 
             {/* Proxy */}
             <div className="settings-section">
-                <h4 className="settings-section-title">✦ Прокси</h4>
+                <h4 className="settings-section-title">{isStrict ? 'Прокси' : '✦ Прокси'}</h4>
                 <Card variant="glass" hover={false}>
                     <CardBody>
                         <div className="settings-list">
@@ -165,7 +185,7 @@ export default function Settings() {
 
             {/* DNS */}
             <div className="settings-section">
-                <h4 className="settings-section-title">✦ DNS</h4>
+                <h4 className="settings-section-title">{isStrict ? 'DNS' : '✦ DNS'}</h4>
                 <Card variant="glass" hover={false}>
                     <CardBody>
                         <div className="settings-list">
@@ -193,13 +213,17 @@ export default function Settings() {
 
             {/* About */}
             <div className="settings-section">
-                <h4 className="settings-section-title">✦ О программе</h4>
+                <h4 className="settings-section-title">{isStrict ? 'О программе' : '✦ О программе'}</h4>
                 <Card variant="glass" hover={false}>
                     <CardBody>
                         <div className="about-info">
                             <div className="about-logo text-gradient">FrieRay</div>
                             <div className="about-version">v0.1.0</div>
-                            <p className="about-desc">V2Ray клиент в стиле «Провожающая в последний путь Фрирен»</p>
+                            <p className="about-desc">
+                                {isStrict
+                                    ? 'Строгий V2Ray-клиент с нейтральным интерфейсом без персонажей и декоративного фэнтези.'
+                                    : 'V2Ray клиент в стиле «Провожающая в последний путь Фрирен»'}
+                            </p>
                             <p className="about-tech">Tauri v2 • React • Xray-core • Zapret</p>
                         </div>
                     </CardBody>
