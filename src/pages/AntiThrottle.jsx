@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Card, { CardHeader, CardBody } from '../components/UI/Card';
 import Toggle from '../components/UI/Toggle';
 import Button from '../components/UI/Button';
+import { useTheme } from '../hooks/useTheme';
 import './AntiThrottle.css';
 
 const services = [
@@ -64,6 +65,8 @@ const strategies = [
 ];
 
 export default function AntiThrottle() {
+    const { visualStyle } = useTheme();
+    const isStrict = visualStyle === 'strict';
     const [enabled, setEnabled] = useState(false);
     const [activeServices, setActiveServices] = useState({ youtube: true, discord: true, telegram: true });
     const [strategy, setStrategy] = useState('auto');
@@ -127,7 +130,7 @@ export default function AntiThrottle() {
 
             {/* DPI Strategy */}
             <div className="at-section">
-                <h4 className="at-section-title">✦ Стратегия обхода</h4>
+                <h4 className="at-section-title">{isStrict ? 'Стратегия обхода' : '✦ Стратегия обхода'}</h4>
                 <div className="at-strategies">
                     {strategies.map(s => (
                         <button
@@ -144,7 +147,7 @@ export default function AntiThrottle() {
 
             {/* Services */}
             <div className="at-section">
-                <h4 className="at-section-title">✦ Сервисы</h4>
+                <h4 className="at-section-title">{isStrict ? 'Сервисы' : '✦ Сервисы'}</h4>
                 <div className="at-services stagger-children">
                     {services.map(service => (
                         <Card

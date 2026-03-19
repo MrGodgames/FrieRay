@@ -16,7 +16,6 @@
     background: var(--bg-gradient);
 }
 
-/* Fantasy background image overlay */
 .app-bg::before {
     content: '';
     position: absolute;
@@ -31,6 +30,11 @@
     opacity: 0.06;
     pointer-events: none;
     z-index: 0;
+}
+
+[data-ui-style="strict"] .app-bg::before {
+    background-image: none;
+    opacity: 0;
 }
 
 /* Subtle star-like dots via radial gradients */
@@ -59,6 +63,26 @@
         radial-gradient(1px 1px at 80% 10%, rgba(139, 106, 255, 0.2) 0%, transparent 100%),
         radial-gradient(1px 1px at 45% 95%, rgba(45, 232, 160, 0.15) 0%, transparent 100%);
     animation: shimmer 30s ease-in-out infinite alternate;
+}
+
+[data-ui-style="strict"] .app-bg-stars {
+    background-image:
+        radial-gradient(circle at 20% 25%, rgba(152, 165, 179, 0.09) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 78% 18%, rgba(185, 170, 136, 0.08) 0 1px, transparent 1.5px),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 30%);
+    animation: none;
+    opacity: 0.8;
+}
+
+.app-bg-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 80px 80px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent 75%);
+    pointer-events: none;
 }
 
 .main-content {
@@ -107,6 +131,21 @@
     opacity: 0.4;
     letter-spacing: 0.3em;
     text-shadow: 0 0 10px var(--accent-400);
+}
+
+[data-ui-style="strict"] .page-header p {
+    font-style: normal;
+    letter-spacing: 0.03em;
+}
+
+[data-ui-style="strict"] .page-header::after {
+    content: '';
+    width: 96px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-500), transparent);
+    letter-spacing: 0;
+    text-shadow: none;
+    opacity: 0.8;
 }
 
 /* Card grid */

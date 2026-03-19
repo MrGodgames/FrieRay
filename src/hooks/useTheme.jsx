@@ -7,18 +7,31 @@ export function ThemeProvider({ children }) {
         const saved = localStorage.getItem('frieray-theme');
         return saved || 'dark';
     });
+    const [visualStyle, setVisualStyle] = useState(() => {
+        const saved = localStorage.getItem('frieray-visual-style');
+        return saved || 'fantasy';
+    });
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('frieray-theme', theme);
     }, [theme]);
 
+    useEffect(() => {
+        document.documentElement.setAttribute('data-ui-style', visualStyle);
+        localStorage.setItem('frieray-visual-style', visualStyle);
+    }, [visualStyle]);
+
     const toggleTheme = () => {
         setTheme(prev => prev === 'dark' ? 'light' : 'dark');
     };
 
+    const toggleVisualStyle = () => {
+        setVisualStyle(prev => prev === 'strict' ? 'fantasy' : 'strict');
+    };
+
     return (
-        <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+        <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, visualStyle, setVisualStyle, toggleVisualStyle }}>
             {children}
         </ThemeContext.Provider>
     );

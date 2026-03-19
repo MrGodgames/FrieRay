@@ -89,3 +89,12 @@
     font-size: 0.7rem;
     color: var(--text-muted);
 }
+
+[data-ui-style="strict"] .settings-section-title {
+    letter-spacing: 0.18em;
+}
+
+[data-ui-style="strict"] .about-desc {
+    font-style: normal;
+    max-width: 520px;
+}

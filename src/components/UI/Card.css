@@ -47,3 +47,14 @@
     border-color: rgba(139, 106, 255, 0.2);
     box-shadow: 0 0 20px rgba(139, 106, 255, 0.05);
 }
+
+[data-ui-style="strict"] .fr-card {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: var(--glass-shadow);
+}
+
+[data-ui-style="strict"] .fr-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.14);
+}
