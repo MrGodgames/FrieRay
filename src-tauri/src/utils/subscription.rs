@@ -185,6 +185,9 @@ fn parse_vmess_url(link: &str) -> Result<Server, String> {
         ping: None,
         speed_mbps: None,
         reachable: None,
+        speed_reachable: None,
+        ping_checking: false,
+        speed_checking: false,
         subscription_id: None,
     };
 
@@ -247,6 +250,9 @@ fn parse_trojan_url(link: &str) -> Result<Server, String> {
         ping: None,
         speed_mbps: None,
         reachable: None,
+        speed_reachable: None,
+        ping_checking: false,
+        speed_checking: false,
         subscription_id: None,
     })
 }
@@ -311,6 +317,9 @@ fn parse_ss_url(link: &str) -> Result<Server, String> {
         ping: None,
         speed_mbps: None,
         reachable: None,
+        speed_reachable: None,
+        ping_checking: false,
+        speed_checking: false,
         subscription_id: None,
     })
 }

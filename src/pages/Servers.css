@@ -337,7 +337,7 @@
     font-family: var(--font-mono);
     font-size: 0.75rem;
     font-weight: 600;
-    min-width: 92px;
+    min-width: 104px;
     text-align: right;
     color: var(--gold-400);
 }

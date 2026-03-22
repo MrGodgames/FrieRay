@@ -26,6 +26,12 @@ pub struct Server {
     pub speed_mbps: Option<f64>,
     #[serde(default)]
     pub reachable: Option<bool>,
+    #[serde(default)]
+    pub speed_reachable: Option<bool>,
+    #[serde(default)]
+    pub ping_checking: bool,
+    #[serde(default)]
+    pub speed_checking: bool,
     pub subscription_id: Option<String>,
 }
 

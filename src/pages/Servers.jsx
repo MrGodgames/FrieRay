@@ -49,6 +49,7 @@ export default function Servers() {
     }, [isPinging, isTestingSpeed]);
 
     const getPingColor = (server) => {
+        if (server.ping_checking) return 'var(--primary-300)';
         if (server.reachable === false) return 'var(--error)';
         const ping = server.ping;
         if (!ping && ping !== 0) return 'var(--text-muted)';
@@ -58,6 +59,7 @@ export default function Servers() {
     };
 
     const getPingLabel = (server) => {
+        if (server.ping_checking) return 'Скан...';
         if (server.reachable === false) return 'Недоступен';
         const ping = server.ping;
         if (!ping && ping !== 0) return '—';
@@ -65,7 +67,8 @@ export default function Servers() {
     };
 
     const formatSpeedLabel = (server) => {
-        if (server.reachable === false) return 'Недоступен';
+        if (server.speed_checking) return 'Скан...';
+        if (server.speed_reachable === false) return 'Недоступен';
         const speedMbps = server.speed_mbps;
         if (speedMbps === null || speedMbps === undefined) return '—';
         if (speedMbps < 1) return `${speedMbps.toFixed(2)} Mb/s`;
@@ -108,6 +111,15 @@ export default function Servers() {
     const handlePingAll = async () => {
         setIsPinging(true);
         setError(null);
+        setServers(prev => prev.map(server => ({
+            ...server,
+            ping: null,
+            reachable: null,
+            ping_checking: true,
+            speed_mbps: null,
+            speed_reachable: null,
+            speed_checking: false,
+        })));
         try {
             const result = await api.pingAllServers();
             if (result) setServers(result);
@@ -121,6 +133,12 @@ export default function Servers() {
     const handleSpeedTestAll = async () => {
         setIsTestingSpeed(true);
         setError(null);
+        setServers(prev => prev.map(server => ({
+            ...server,
+            speed_mbps: null,
+            speed_reachable: server.reachable === false ? false : null,
+            speed_checking: server.reachable !== false,
+        })));
         try {
             const result = await api.speedTestAllServers();
             if (result) setServers(result);

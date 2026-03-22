@@ -7,6 +7,7 @@ use crate::utils::subscription::{fetch_subscription, parse_subscription_content}
 use crate::utils::vless;
 use crate::AppState;
 use std::collections::HashMap;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::process::Stdio;
 use tauri::State;
@@ -19,9 +20,23 @@ const SERVER_SPEED_TEST_TARGETS: &[(&str, &str)] = &[
 ];
 const SERVER_SPEED_TEST_BYTES: u64 = 256 * 1024;
 const SERVER_SPEED_TEST_TIMEOUT_SECS: u64 = 6;
-const SERVER_SPEED_TEST_CONCURRENCY: usize = 10;
-const PING_ATTEMPTS: usize = 3;
-const PING_TIMEOUT_MS: u64 = 2500;
+const SERVER_SPEED_TEST_CONNECT_TIMEOUT_SECS: u64 = 2;
+const SERVER_SPEED_TEST_CONCURRENCY: usize = 6;
+const SERVER_SPEED_TEST_WARMUP_ATTEMPTS: usize = 1;
+const SERVER_SPEED_TEST_ATTEMPTS: usize = 3;
+const SERVER_SPEED_TEST_MIN_SUCCESSFUL_ATTEMPTS: usize = 2;
+const SERVER_SPEED_TEST_BETWEEN_ATTEMPTS_MS: u64 = 150;
+const SERVER_SPEED_TEST_FAILURE_PENALTY_FACTOR: f64 = 0.9;
+const SERVER_SPEED_TEST_MAX_INITIAL_FAILURES: usize = 2;
+const SERVER_SPEED_TEST_MIN_VALID_MBPS: f64 = 0.05;
+const PING_CONCURRENCY: usize = 12;
+const PING_ATTEMPTS: usize = 5;
+const PING_WARMUP_ATTEMPTS: usize = 1;
+const PING_MIN_SUCCESSFUL_ATTEMPTS: usize = 3;
+const PING_TIMEOUT_MS: u64 = 1800;
+const PING_BETWEEN_ATTEMPTS_MS: u64 = 120;
+const PING_FAILURE_PENALTY_MS: u32 = 35;
+const PING_MAX_RESOLVED_ADDRS: usize = 3;
 
 #[tauri::command]
 pub async fn add_subscription(
@@ -184,14 +199,31 @@ pub async fn ping_server(address: String, port: u16) -> Result<u32, String> {
 /// Ping all servers in parallel and return sorted list
 #[tauri::command]
 pub async fn ping_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, String> {
+    {
+        let mut state_servers = state.servers.lock().await;
+        for server in state_servers.iter_mut() {
+            server.ping = None;
+            server.reachable = None;
+            server.ping_checking = true;
+            server.speed_mbps = None;
+            server.speed_checking = false;
+        }
+        storage::save_servers(&state_servers)?;
+    }
+
     let servers = state.servers.lock().await.clone();
+    let semaphore = std::sync::Arc::new(Semaphore::new(PING_CONCURRENCY));
     let mut join_set = tokio::task::JoinSet::new();
 
     for server in &servers {
+        let permit_pool = semaphore.clone();
         let server_id = server.id.clone();
         let addr = server.address.clone();
         let port = server.port;
-        join_set.spawn(async move { (server_id, measure_server_ping(&addr, port).await.ok()) });
+        join_set.spawn(async move {
+            let _permit = permit_pool.acquire_owned().await.ok();
+            (server_id, measure_server_ping(&addr, port).await.ok())
+        });
     }
 
     while let Some(result) = join_set.join_next().await {
@@ -202,6 +234,7 @@ pub async fn ping_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>,
                     Some(probe) => {
                         server.ping = probe.ping;
                         server.reachable = Some(probe.reachable);
+                        server.ping_checking = false;
                         if !probe.reachable {
                             server.speed_mbps = None;
                         }
@@ -209,6 +242,7 @@ pub async fn ping_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>,
                     None => {
                         server.ping = None;
                         server.reachable = Some(false);
+                        server.ping_checking = false;
                         server.speed_mbps = None;
                     }
                 }
@@ -241,6 +275,20 @@ pub async fn speed_test_all_servers(state: State<'_, AppState>) -> Result<Vec<Se
 
     if current_servers.is_empty() {
         return Err("Нет серверов для теста скорости".into());
+    }
+
+    {
+        let mut state_servers = state.servers.lock().await;
+        for server in state_servers.iter_mut() {
+            server.speed_mbps = None;
+            server.speed_reachable = if server.reachable == Some(false) {
+                Some(false)
+            } else {
+                None
+            };
+            server.speed_checking = server.reachable != Some(false);
+        }
+        storage::save_servers(&state_servers)?;
     }
 
     let mut reachable_servers = Vec::new();
@@ -276,24 +324,30 @@ pub async fn speed_test_all_servers(state: State<'_, AppState>) -> Result<Vec<Se
     for server in reachable_servers {
         let permit_pool = semaphore.clone();
         let settings = settings.clone();
+        let server_id = server.id.clone();
         join_set.spawn(async move {
             let _permit = permit_pool.acquire_owned().await.ok();
-            let speed = speed_test_server(&server, &settings).await.ok();
-            (server.id, speed)
+            (server_id, speed_test_server(&server, &settings).await)
         });
     }
 
     let mut speed_by_id = HashMap::new();
+    let mut speed_reachability_by_id = HashMap::new();
     while let Some(result) = join_set.join_next().await {
-        if let Ok((server_id, speed)) = result {
+        if let Ok((server_id, speed_result)) = result {
             let lookup_id = server_id.clone();
-            speed_by_id.insert(server_id, speed);
+            let speed = speed_result.ok();
+            let speed_reachable = speed.is_some();
+            speed_by_id.insert(server_id.clone(), speed);
+            speed_reachability_by_id.insert(server_id, speed_reachable);
             let mut state_servers = state.servers.lock().await;
             if let Some(server) = state_servers
                 .iter_mut()
                 .find(|server| server.id == lookup_id)
             {
                 server.speed_mbps = speed;
+                server.speed_reachable = Some(speed_reachable);
+                server.speed_checking = false;
             }
         }
     }
@@ -302,9 +356,18 @@ pub async fn speed_test_all_servers(state: State<'_, AppState>) -> Result<Vec<Se
     for server in &mut servers {
         if skipped_servers.iter().any(|id| id == &server.id) {
             server.speed_mbps = None;
+            server.speed_reachable = Some(false);
+            server.speed_checking = false;
             continue;
         }
         server.speed_mbps = speed_by_id.get(&server.id).copied().flatten();
+        server.speed_reachable = Some(
+            speed_reachability_by_id
+                .get(&server.id)
+                .copied()
+                .unwrap_or(false),
+        );
+        server.speed_checking = false;
     }
 
     servers.sort_by(|a, b| match (a.speed_mbps, b.speed_mbps) {
@@ -405,21 +468,67 @@ async fn speed_test_server(server: &Server, settings: &AppSettings) -> Result<f6
 
         let client = reqwest::Client::builder()
             .proxy(proxy)
+            .connect_timeout(std::time::Duration::from_secs(
+                SERVER_SPEED_TEST_CONNECT_TIMEOUT_SECS,
+            ))
             .timeout(std::time::Duration::from_secs(
                 SERVER_SPEED_TEST_TIMEOUT_SECS,
             ))
             .build()
             .map_err(|e| format!("Client error: {}", e))?;
 
+        for _ in 0..SERVER_SPEED_TEST_WARMUP_ATTEMPTS {
+            let _ = run_stabilized_speed_attempt(&client).await;
+            tokio::time::sleep(std::time::Duration::from_millis(
+                SERVER_SPEED_TEST_BETWEEN_ATTEMPTS_MS,
+            ))
+            .await;
+        }
+
+        let mut samples = Vec::new();
         let mut errors = Vec::new();
-        for (name, url) in SERVER_SPEED_TEST_TARGETS {
-            match run_server_speed_test(&client, url).await {
-                Ok(mbps) => return Ok(mbps),
-                Err(e) => errors.push(format!("{}: {}", name, e)),
+        let mut initial_failures = 0;
+
+        for attempt in 0..SERVER_SPEED_TEST_ATTEMPTS {
+            match run_stabilized_speed_attempt(&client).await {
+                Ok(mbps) if mbps >= SERVER_SPEED_TEST_MIN_VALID_MBPS => {
+                    samples.push(mbps);
+                    initial_failures = 0;
+                }
+                Ok(mbps) => {
+                    initial_failures += 1;
+                    errors.push(format!(
+                        "слишком низкая измеренная скорость ({:.3} Mb/s)",
+                        mbps
+                    ));
+                }
+                Err(e) => {
+                    initial_failures += 1;
+                    errors.push(e);
+                }
+            }
+
+            if samples.is_empty() && initial_failures >= SERVER_SPEED_TEST_MAX_INITIAL_FAILURES {
+                return Err(errors.join(" | "));
+            }
+
+            if attempt + 1 < SERVER_SPEED_TEST_ATTEMPTS {
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    SERVER_SPEED_TEST_BETWEEN_ATTEMPTS_MS,
+                ))
+                .await;
             }
         }
 
-        Err(errors.join(" | "))
+        if samples.len() < SERVER_SPEED_TEST_MIN_SUCCESSFUL_ATTEMPTS {
+            return Err(if errors.is_empty() {
+                "Недостаточно успешных попыток теста скорости".into()
+            } else {
+                errors.join(" | ")
+            });
+        }
+
+        Ok(stabilize_speed_samples(&mut samples, errors.len()))
     }
     .await;
 
@@ -428,6 +537,18 @@ async fn speed_test_server(server: &Server, settings: &AppSettings) -> Result<f6
     let _ = std::fs::remove_file(&config_path);
 
     result
+}
+
+async fn run_stabilized_speed_attempt(client: &reqwest::Client) -> Result<f64, String> {
+    let mut errors = Vec::new();
+    for (name, url) in SERVER_SPEED_TEST_TARGETS {
+        match run_server_speed_test(client, url).await {
+            Ok(mbps) => return Ok(mbps),
+            Err(e) => errors.push(format!("{}: {}", name, e)),
+        }
+    }
+
+    Err(errors.join(" | "))
 }
 
 fn reserve_local_port() -> Result<u16, String> {
@@ -489,6 +610,20 @@ async fn run_server_speed_test(client: &reqwest::Client, url: &str) -> Result<f6
     Ok((bytes.len() as f64 * 8.0) / (elapsed * 1_000_000.0))
 }
 
+fn stabilize_speed_samples(samples: &mut [f64], failed_attempts: usize) -> f64 {
+    samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+    let stable_avg = if samples.len() >= 3 {
+        let trimmed = &samples[1..samples.len() - 1];
+        trimmed.iter().copied().sum::<f64>() / trimmed.len() as f64
+    } else {
+        samples.iter().copied().sum::<f64>() / samples.len() as f64
+    };
+
+    let penalty = SERVER_SPEED_TEST_FAILURE_PENALTY_FACTOR.powi(failed_attempts as i32);
+    stable_avg * penalty
+}
+
 #[derive(Debug, Clone, Copy)]
 struct PingProbe {
     ping: Option<u32>,
@@ -496,18 +631,52 @@ struct PingProbe {
 }
 
 async fn measure_server_ping(address: &str, port: u16) -> Result<PingProbe, String> {
-    use tokio::net::TcpStream;
-    use tokio::time::{timeout, Duration};
-
-    let socket_addr = tokio::net::lookup_host((address, port))
+    let mut socket_addrs = tokio::net::lookup_host((address, port))
         .await
         .map_err(|e| format!("DNS error: {}", e))?
-        .next()
-        .ok_or("Cannot resolve address")?;
+        .collect::<Vec<_>>();
 
+    if socket_addrs.is_empty() {
+        return Err("Cannot resolve address".into());
+    }
+
+    socket_addrs.sort_by_key(socket_addr_sort_key);
+    socket_addrs.dedup();
+    socket_addrs.truncate(PING_MAX_RESOLVED_ADDRS);
+
+    let mut best_ping = None;
+
+    for socket_addr in socket_addrs {
+        if let Some(ping) = measure_socket_addr_ping(socket_addr).await {
+            best_ping = match best_ping {
+                Some(current_best) if current_best <= ping => Some(current_best),
+                _ => Some(ping),
+            };
+        }
+    }
+
+    Ok(PingProbe {
+        ping: best_ping,
+        reachable: best_ping.is_some(),
+    })
+}
+
+async fn measure_socket_addr_ping(socket_addr: SocketAddr) -> Option<u32> {
+    use tokio::net::TcpStream;
+    use tokio::time::{sleep, timeout, Duration};
     let mut samples = Vec::new();
+    let mut failed_attempts = 0;
 
-    for _ in 0..PING_ATTEMPTS {
+    for _ in 0..PING_WARMUP_ATTEMPTS {
+        let _ = timeout(
+            Duration::from_millis(PING_TIMEOUT_MS),
+            TcpStream::connect(socket_addr),
+        )
+        .await;
+        sleep(Duration::from_millis(PING_BETWEEN_ATTEMPTS_MS)).await;
+    }
+
+    for attempt in 0..PING_ATTEMPTS {
         let start = std::time::Instant::now();
         if let Ok(Ok(_)) = timeout(
             Duration::from_millis(PING_TIMEOUT_MS),
@@ -516,19 +685,38 @@ async fn measure_server_ping(address: &str, port: u16) -> Result<PingProbe, Stri
         .await
         {
             samples.push(start.elapsed().as_millis() as u32);
+        } else {
+            failed_attempts += 1;
+        }
+
+        if attempt + 1 < PING_ATTEMPTS {
+            sleep(Duration::from_millis(PING_BETWEEN_ATTEMPTS_MS)).await;
         }
     }
 
-    if samples.is_empty() {
-        return Ok(PingProbe {
-            ping: None,
-            reachable: false,
-        });
+    if samples.len() < PING_MIN_SUCCESSFUL_ATTEMPTS {
+        return None;
     }
 
+    Some(stabilize_ping_samples(&mut samples, failed_attempts))
+}
+
+fn stabilize_ping_samples(samples: &mut [u32], failed_attempts: usize) -> u32 {
     samples.sort_unstable();
-    Ok(PingProbe {
-        ping: Some(samples[samples.len() / 2]),
-        reachable: true,
-    })
+
+    let stable_avg = if samples.len() >= 5 {
+        let trimmed = &samples[1..samples.len() - 1];
+        trimmed.iter().copied().sum::<u32>() / trimmed.len() as u32
+    } else {
+        samples.iter().copied().sum::<u32>() / samples.len() as u32
+    };
+
+    stable_avg + failed_attempts as u32 * PING_FAILURE_PENALTY_MS
+}
+
+fn socket_addr_sort_key(addr: &SocketAddr) -> (u8, String, u16) {
+    match addr.ip() {
+        IpAddr::V4(ip) => (0, ip.to_string(), addr.port()),
+        IpAddr::V6(ip) => (1, ip.to_string(), addr.port()),
+    }
 }
