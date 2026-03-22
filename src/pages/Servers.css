@@ -253,16 +253,38 @@
 }
 
 .server-active-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-family: var(--font-mono);
     font-size: 0.6rem;
     font-weight: 700;
     color: var(--accent-400);
-    padding: 2px 8px;
+    padding: 4px 9px;
     background: rgba(45, 232, 160, 0.1);
     border-radius: var(--radius-full);
     border: 1px solid rgba(45, 232, 160, 0.2);
     letter-spacing: 0.08em;
+    line-height: 1;
     text-shadow: 0 0 8px rgba(45, 232, 160, 0.3);
+}
+
+.server-active-badge-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 10px;
+    height: 10px;
+    font-size: 0.65rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.server-active-badge-text {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    text-transform: uppercase;
 }
 
 .server-item-content {
@@ -313,6 +335,14 @@
     display: flex;
     align-items: center;
     gap: var(--space-md);
+    flex-shrink: 0;
+}
+
+.server-active-slot {
+    width: 138px;
+    min-width: 138px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .server-protocol {
@@ -357,4 +387,30 @@
 .server-status-dot.offline {
     background: var(--error);
     box-shadow: 0 0 8px rgba(255, 107, 138, 0.5);
+}
+
+@media (max-width: 1120px) {
+    .server-active-slot {
+        width: 26px;
+        min-width: 26px;
+    }
+
+    .server-active-badge {
+        width: 26px;
+        min-width: 26px;
+        height: 26px;
+        justify-content: center;
+        padding: 0;
+        border-radius: 50%;
+    }
+
+    .server-active-badge-text {
+        display: none;
+    }
+
+    .server-active-badge-icon {
+        width: 12px;
+        height: 12px;
+        font-size: 0.72rem;
+    }
 }

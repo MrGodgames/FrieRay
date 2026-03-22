@@ -334,9 +334,14 @@ export default function Servers() {
                                         <span className="server-speed">
                                             {formatSpeedLabel(server)}
                                         </span>
-                                        {activeServerId === server.id && (
-                                            <span className="server-active-badge">✓ АКТИВНЫЙ</span>
-                                        )}
+                                        <span className="server-active-slot">
+                                            {activeServerId === server.id && (
+                                                <span className="server-active-badge">
+                                                    <span className="server-active-badge-icon" aria-hidden="true">✓</span>
+                                                    <span className="server-active-badge-text">Активный</span>
+                                                </span>
+                                            )}
+                                        </span>
                                     </div>
                                 </div>
                             </div>

@@ -1,11 +1,14 @@
 import Sidebar from './Sidebar';
 import MagicParticles from '../Particles/MagicParticles';
+import { useLocation } from 'react-router-dom';
 import { useTheme } from '../../hooks/useTheme';
 import characterImg from '../../assets/images/character.png';
 import './Layout.css';
 
 export default function Layout({ children }) {
     const { isClassic } = useTheme();
+    const location = useLocation();
+    const showCharacter = !isClassic && location.pathname === '/';
 
     return (
         <div className="app-layout">
@@ -21,7 +24,7 @@ export default function Layout({ children }) {
                 </div>
             </main>
 
-            {!isClassic && (
+            {showCharacter && (
                 <div className="character-decoration">
                     <img src={characterImg} alt="" className="character-img" />
                     <div className="character-glow" />
