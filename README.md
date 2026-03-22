@@ -24,7 +24,7 @@ Prebuilt macOS builds are available in GitHub Releases.
 
 Release file:
 
-- `FrieRay_0.1.0_aarch64.dmg`
+- `FrieRay_0.1.1_aarch64.dmg`
 
 ### Current Status
 
@@ -118,7 +118,7 @@ FrieRay — это десктопный V2Ray/Xray-клиент для macOS, н
 
 Файл для скачивания:
 
-- `FrieRay_0.1.0_aarch64.dmg`
+- `FrieRay_0.1.1_aarch64.dmg`
 
 ### Текущий статус
 

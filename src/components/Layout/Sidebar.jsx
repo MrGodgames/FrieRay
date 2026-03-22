@@ -122,7 +122,7 @@ export default function Sidebar() {
                     )}
                     <span>{theme === 'dark' ? 'День' : 'Ночь'}</span>
                 </button>
-                <div className="sidebar-version">v0.1.0</div>
+                <div className="sidebar-version">v0.1.1</div>
             </div>
         </aside>
     );
