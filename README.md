@@ -18,6 +18,28 @@ It focuses on a clean desktop workflow for everyday use: subscription import, qu
 - Light and dark themes
 - Two interface styles: fantasy and classic
 
+### Supported Input Formats
+
+FrieRay currently accepts several common subscription and config formats on import:
+
+- plain-text subscription lists with `vless://`, `vmess://`, `trojan://`, `ss://`
+- the same lists when they are base64-encoded
+- Xray / V2Ray JSON configs with supported `outbounds`
+- some sing-box-style JSON outbound definitions using fields such as `type`, `server`, `server_port`, `uuid`, `tls`, and `transport`
+
+Current import compatibility is focused on these outbound protocols:
+
+- VLESS
+- VMess
+- Trojan
+- Shadowsocks
+
+Important:
+
+- import support does not automatically mean every protocol/path is equally tested in the full connect flow
+- the current desktop workflow is primarily tested around Xray-based VLESS setups
+- formats such as Clash YAML, TUIC, Hysteria, WireGuard, or other unsupported protocol families are not guaranteed to work yet
+
 ### Downloads
 
 Prebuilt macOS builds are available in GitHub Releases.
@@ -111,6 +133,28 @@ FrieRay — это десктопный V2Ray/Xray-клиент для macOS, н
 - логи и диагностика подключения
 - светлая и тёмная темы
 - два стиля интерфейса: fantasy и classic
+
+### Поддерживаемые форматы импорта
+
+Сейчас FrieRay умеет принимать несколько распространённых форматов подписок и конфигов:
+
+- обычные текстовые подписки со строками `vless://`, `vmess://`, `trojan://`, `ss://`
+- те же списки, если они закодированы в base64
+- JSON-конфиги Xray / V2Ray с поддерживаемыми `outbounds`
+- часть JSON-форматов в стиле sing-box, где используются поля `type`, `server`, `server_port`, `uuid`, `tls`, `transport`
+
+Текущий импорт ориентирован на такие outbound-протоколы:
+
+- VLESS
+- VMess
+- Trojan
+- Shadowsocks
+
+Важно:
+
+- поддержка импорта не означает, что каждый протокол и каждый вариант транспорта одинаково хорошо проверен в полном сценарии подключения
+- основной рабочий сценарий приложения сейчас в первую очередь протестирован на Xray-based VLESS-конфигах
+- форматы вроде Clash YAML, TUIC, Hysteria, WireGuard и другие неподдерживаемые семейства протоколов пока не гарантируются
 
 ### Загрузка
 

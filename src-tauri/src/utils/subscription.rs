@@ -64,6 +64,10 @@ pub fn parse_subscription_content(
     let preview = &decoded_content[..decoded_content.len().min(300)];
     log::info!("Decoded content preview: {}", preview);
 
+    if looks_like_json_config(&decoded_content) {
+        return parse_json_subscription_config(&decoded_content, subscription_id);
+    }
+
     let mut servers = Vec::new();
 
     for line in decoded_content.lines() {
@@ -102,28 +106,28 @@ fn try_base64_decode(content: &str) -> Option<String> {
     let try_decode = |data: &str| -> Option<String> {
         if let Ok(bytes) = STANDARD.decode(data) {
             if let Ok(text) = String::from_utf8(bytes) {
-                if text.contains("://") {
+                if is_supported_subscription_payload(&text) {
                     return Some(text);
                 }
             }
         }
         if let Ok(bytes) = STANDARD_NO_PAD.decode(data) {
             if let Ok(text) = String::from_utf8(bytes) {
-                if text.contains("://") {
+                if is_supported_subscription_payload(&text) {
                     return Some(text);
                 }
             }
         }
         if let Ok(bytes) = URL_SAFE.decode(data) {
             if let Ok(text) = String::from_utf8(bytes) {
-                if text.contains("://") {
+                if is_supported_subscription_payload(&text) {
                     return Some(text);
                 }
             }
         }
         if let Ok(bytes) = URL_SAFE_NO_PAD.decode(data) {
             if let Ok(text) = String::from_utf8(bytes) {
-                if text.contains("://") {
+                if is_supported_subscription_payload(&text) {
                     return Some(text);
                 }
             }
@@ -148,6 +152,403 @@ fn try_base64_decode(content: &str) -> Option<String> {
 
     log::info!("Content is not base64, treating as plain text");
     None
+}
+
+fn is_supported_subscription_payload(text: &str) -> bool {
+    let trimmed = text.trim();
+    trimmed.contains("://") || looks_like_json_config(trimmed)
+}
+
+fn looks_like_json_config(content: &str) -> bool {
+    let trimmed = content.trim_start();
+    trimmed.starts_with('{') || trimmed.starts_with('[')
+}
+
+fn parse_json_subscription_config(
+    content: &str,
+    subscription_id: &str,
+) -> Result<Vec<Server>, String> {
+    let root: Value =
+        serde_json::from_str(content).map_err(|e| format!("JSON parse error: {}", e))?;
+
+    let mut embedded_links = Vec::new();
+    collect_embedded_links(&root, &mut embedded_links);
+    if !embedded_links.is_empty() {
+        let mut servers = Vec::new();
+        for link in embedded_links {
+            let result = if link.starts_with("vless://") {
+                vless::parse_vless_url(&link).ok()
+            } else if link.starts_with("vmess://") {
+                parse_vmess_url(&link).ok()
+            } else if link.starts_with("trojan://") {
+                parse_trojan_url(&link).ok()
+            } else if link.starts_with("ss://") {
+                parse_ss_url(&link).ok()
+            } else {
+                None
+            };
+
+            if let Some(mut server) = result {
+                server.subscription_id = Some(subscription_id.to_string());
+                servers.push(server);
+            }
+        }
+
+        if !servers.is_empty() {
+            return Ok(servers);
+        }
+    }
+
+    let root_remarks = root
+        .get("remarks")
+        .and_then(Value::as_str)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+
+    let outbounds = root
+        .get("outbounds")
+        .and_then(Value::as_array)
+        .or_else(|| root.get("proxies").and_then(Value::as_array))
+        .ok_or("JSON-конфиг не содержит outbounds/proxies")?;
+
+    let mut servers = Vec::new();
+    for outbound in outbounds {
+        if let Some(mut server) = parse_json_outbound(outbound, root_remarks.as_deref())? {
+            server.subscription_id = Some(subscription_id.to_string());
+            servers.push(server);
+        }
+    }
+
+    Ok(servers)
+}
+
+fn parse_json_outbound(
+    outbound: &Value,
+    root_remarks: Option<&str>,
+) -> Result<Option<Server>, String> {
+    let protocol_str = outbound
+        .get("protocol")
+        .or_else(|| outbound.get("type"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_lowercase();
+
+    let Some(protocol) = (match protocol_str.as_str() {
+        "vless" => Some(Protocol::Vless),
+        "vmess" => Some(Protocol::Vmess),
+        "trojan" => Some(Protocol::Trojan),
+        "shadowsocks" => Some(Protocol::Shadowsocks),
+        _ => None,
+    }) else {
+        return Ok(None);
+    };
+
+    let stream = outbound.get("streamSettings").unwrap_or(&Value::Null);
+    let transport = outbound.get("transport").unwrap_or(&Value::Null);
+    let tls = outbound.get("tls").unwrap_or(&Value::Null);
+    let network = stream
+        .get("network")
+        .and_then(Value::as_str)
+        .or_else(|| transport.get("type").and_then(Value::as_str))
+        .unwrap_or("tcp")
+        .to_string();
+    let security = stream
+        .get("security")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| detect_json_security(outbound));
+    let security_block = if security == "reality" {
+        stream.get("realitySettings").unwrap_or(&Value::Null)
+    } else if security == "tls" {
+        stream.get("tlsSettings").unwrap_or(&Value::Null)
+    } else if tls.get("enabled").and_then(Value::as_bool) == Some(true) {
+        tls
+    } else {
+        &Value::Null
+    };
+
+    let settings = outbound.get("settings").unwrap_or(&Value::Null);
+    let tag = outbound.get("tag").and_then(Value::as_str);
+    let outbound_remarks = outbound.get("remarks").and_then(Value::as_str);
+
+    let mut server = match protocol {
+        Protocol::Vless | Protocol::Vmess => {
+            let vnext = settings
+                .get("vnext")
+                .and_then(Value::as_array)
+                .and_then(|items| items.first());
+            let user = vnext
+                .and_then(|value| value.get("users"))
+                .and_then(Value::as_array)
+                .and_then(|items| items.first());
+
+            Server {
+                id: Uuid::new_v4().to_string(),
+                name: build_json_server_name(root_remarks, outbound_remarks, tag, &protocol_str),
+                address: value_as_string(vnext.and_then(|value| value.get("address")))
+                    .or_else(|| value_as_string(outbound.get("server")))
+                    .unwrap_or_default(),
+                port: value_as_u16(vnext.and_then(|value| value.get("port")))
+                    .or_else(|| value_as_u16(outbound.get("server_port")))
+                    .unwrap_or(443),
+                protocol,
+                uuid: value_as_string(user.and_then(|value| value.get("id")))
+                    .or_else(|| value_as_string(outbound.get("uuid")))
+                    .unwrap_or_default(),
+                encryption: value_as_string(user.and_then(|value| value.get("encryption")))
+                    .or_else(|| value_as_string(outbound.get("security")))
+                    .unwrap_or_else(|| if protocol_str == "vless" { "none".into() } else { "auto".into() }),
+                flow: value_as_string(user.and_then(|value| value.get("flow")))
+                    .or_else(|| value_as_string(outbound.get("flow"))),
+                network,
+                security,
+                sni: value_as_string(security_block.get("serverName"))
+                    .or_else(|| value_as_string(security_block.get("server_name")))
+                    .or_else(|| value_as_string(tls.get("server_name"))),
+                fingerprint: value_as_string(security_block.get("fingerprint"))
+                    .or_else(|| value_as_string(security_block.get("client_fingerprint")))
+                    .or_else(|| value_as_string(tls.get("utls").and_then(|value| value.get("fingerprint")))),
+                public_key: value_as_string(
+                    stream
+                        .get("realitySettings")
+                        .and_then(|value| value.get("publicKey")),
+                )
+                .or_else(|| value_as_string(tls.get("reality").and_then(|value| value.get("public_key")))),
+                short_id: value_as_string(
+                    stream
+                        .get("realitySettings")
+                        .and_then(|value| value.get("shortId")),
+                )
+                .or_else(|| value_as_string(tls.get("reality").and_then(|value| value.get("short_id")))),
+                path: extract_path(stream).or_else(|| extract_transport_path(transport)),
+                host: extract_host(stream).or_else(|| extract_transport_host(transport)),
+                service_name: value_as_string(
+                    stream
+                        .get("grpcSettings")
+                        .and_then(|value| value.get("serviceName")),
+                )
+                .or_else(|| value_as_string(transport.get("service_name"))),
+                country: None,
+                ping: None,
+                speed_mbps: None,
+                reachable: None,
+                speed_reachable: None,
+                ping_checking: false,
+                speed_checking: false,
+                subscription_id: None,
+            }
+        }
+        Protocol::Trojan => {
+            let server_entry = settings
+                .get("servers")
+                .and_then(Value::as_array)
+                .and_then(|items| items.first());
+
+            Server {
+                id: Uuid::new_v4().to_string(),
+                name: build_json_server_name(root_remarks, outbound_remarks, tag, &protocol_str),
+                address: value_as_string(server_entry.and_then(|value| value.get("address")))
+                    .or_else(|| value_as_string(outbound.get("server")))
+                    .unwrap_or_default(),
+                port: value_as_u16(server_entry.and_then(|value| value.get("port")))
+                    .or_else(|| value_as_u16(outbound.get("server_port")))
+                    .unwrap_or(443),
+                protocol,
+                uuid: value_as_string(server_entry.and_then(|value| value.get("password")))
+                    .or_else(|| value_as_string(outbound.get("password")))
+                    .unwrap_or_default(),
+                encryption: "none".into(),
+                flow: value_as_string(server_entry.and_then(|value| value.get("flow")))
+                    .or_else(|| value_as_string(outbound.get("flow"))),
+                network,
+                security,
+                sni: value_as_string(security_block.get("serverName"))
+                    .or_else(|| value_as_string(security_block.get("server_name")))
+                    .or_else(|| value_as_string(tls.get("server_name"))),
+                fingerprint: value_as_string(security_block.get("fingerprint"))
+                    .or_else(|| value_as_string(security_block.get("client_fingerprint")))
+                    .or_else(|| value_as_string(tls.get("utls").and_then(|value| value.get("fingerprint")))),
+                public_key: None,
+                short_id: None,
+                path: extract_path(stream).or_else(|| extract_transport_path(transport)),
+                host: extract_host(stream).or_else(|| extract_transport_host(transport)),
+                service_name: value_as_string(
+                    stream
+                        .get("grpcSettings")
+                        .and_then(|value| value.get("serviceName")),
+                )
+                .or_else(|| value_as_string(transport.get("service_name"))),
+                country: None,
+                ping: None,
+                speed_mbps: None,
+                reachable: None,
+                speed_reachable: None,
+                ping_checking: false,
+                speed_checking: false,
+                subscription_id: None,
+            }
+        }
+        Protocol::Shadowsocks => {
+            let server_entry = settings
+                .get("servers")
+                .and_then(Value::as_array)
+                .and_then(|items| items.first());
+
+            Server {
+                id: Uuid::new_v4().to_string(),
+                name: build_json_server_name(root_remarks, outbound_remarks, tag, &protocol_str),
+                address: value_as_string(server_entry.and_then(|value| value.get("address")))
+                    .or_else(|| value_as_string(outbound.get("server")))
+                    .unwrap_or_default(),
+                port: value_as_u16(server_entry.and_then(|value| value.get("port")))
+                    .or_else(|| value_as_u16(outbound.get("server_port")))
+                    .unwrap_or(8388),
+                protocol,
+                uuid: value_as_string(server_entry.and_then(|value| value.get("password")))
+                    .or_else(|| value_as_string(outbound.get("password")))
+                    .unwrap_or_default(),
+                encryption: value_as_string(server_entry.and_then(|value| value.get("method")))
+                    .or_else(|| value_as_string(outbound.get("method")))
+                    .unwrap_or_else(|| "aes-256-gcm".into()),
+                flow: None,
+                network,
+                security,
+                sni: None,
+                fingerprint: None,
+                public_key: None,
+                short_id: None,
+                path: None,
+                host: None,
+                service_name: None,
+                country: None,
+                ping: None,
+                speed_mbps: None,
+                reachable: None,
+                speed_reachable: None,
+                ping_checking: false,
+                speed_checking: false,
+                subscription_id: None,
+            }
+        }
+    };
+
+    if server.name.trim().is_empty() {
+        server.name = format!("{} {}:{}", protocol_str, server.address, server.port);
+    }
+
+    if server.address.trim().is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(server))
+}
+
+fn build_json_server_name(
+    root_remarks: Option<&str>,
+    outbound_remarks: Option<&str>,
+    tag: Option<&str>,
+    protocol: &str,
+) -> String {
+    let outbound_label = outbound_remarks
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| tag.map(str::trim).filter(|value| !value.is_empty()));
+
+    match (root_remarks, outbound_label) {
+        (Some(root), Some(label)) if root != label => format!("{} [{}]", root, label),
+        (Some(root), _) => root.to_string(),
+        (_, Some(label)) => label.to_string(),
+        _ => protocol.to_uppercase(),
+    }
+}
+
+fn value_as_string(value: Option<&Value>) -> Option<String> {
+    match value {
+        Some(Value::String(value)) => Some(value.clone()),
+        Some(Value::Number(value)) => Some(value.to_string()),
+        Some(Value::Array(items)) => items.first().and_then(|item| value_as_string(Some(item))),
+        _ => None,
+    }
+}
+
+fn value_as_u16(value: Option<&Value>) -> Option<u16> {
+    match value {
+        Some(Value::Number(number)) => number.as_u64().and_then(|value| u16::try_from(value).ok()),
+        Some(Value::String(text)) => text.parse().ok(),
+        _ => None,
+    }
+}
+
+fn extract_path(stream: &Value) -> Option<String> {
+    value_as_string(stream.get("wsSettings").and_then(|value| value.get("path")))
+        .or_else(|| value_as_string(stream.get("xhttpSettings").and_then(|value| value.get("path"))))
+        .or_else(|| value_as_string(stream.get("httpupgradeSettings").and_then(|value| value.get("path"))))
+}
+
+fn extract_host(stream: &Value) -> Option<String> {
+    value_as_string(
+        stream
+            .get("wsSettings")
+            .and_then(|value| value.get("headers"))
+            .and_then(|value| value.get("Host")),
+    )
+    .or_else(|| value_as_string(stream.get("xhttpSettings").and_then(|value| value.get("host"))))
+    .or_else(|| value_as_string(stream.get("httpSettings").and_then(|value| value.get("host"))))
+}
+
+fn extract_transport_path(transport: &Value) -> Option<String> {
+    value_as_string(transport.get("path"))
+}
+
+fn extract_transport_host(transport: &Value) -> Option<String> {
+    value_as_string(transport.get("host"))
+        .or_else(|| value_as_string(transport.get("headers").and_then(|value| value.get("Host"))))
+}
+
+fn detect_json_security(outbound: &Value) -> String {
+    let tls = outbound.get("tls").unwrap_or(&Value::Null);
+    if tls
+        .get("reality")
+        .and_then(|value| value.get("enabled"))
+        .and_then(Value::as_bool)
+        == Some(true)
+        || tls
+            .get("reality")
+            .and_then(|value| value.get("public_key"))
+            .is_some()
+    {
+        "reality".into()
+    } else if tls.get("enabled").and_then(Value::as_bool) == Some(true) {
+        "tls".into()
+    } else {
+        "none".into()
+    }
+}
+
+fn collect_embedded_links(value: &Value, links: &mut Vec<String>) {
+    match value {
+        Value::String(text) => {
+            let text = text.trim();
+            if text.starts_with("vless://")
+                || text.starts_with("vmess://")
+                || text.starts_with("trojan://")
+                || text.starts_with("ss://")
+            {
+                links.push(text.to_string());
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                collect_embedded_links(item, links);
+            }
+        }
+        Value::Object(map) => {
+            for item in map.values() {
+                collect_embedded_links(item, links);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Parse a vmess:// URL (base64 JSON format)
@@ -359,4 +760,59 @@ fn try_base64_decode_single(data: &str) -> Option<String> {
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_xray_json_subscription() {
+        let json = r#"{
+          "remarks": "Test Config",
+          "outbounds": [
+            {
+              "tag": "proxy-a",
+              "protocol": "vless",
+              "settings": {
+                "vnext": [
+                  {
+                    "address": "example.com",
+                    "port": 443,
+                    "users": [
+                      {
+                        "id": "11111111-1111-1111-1111-111111111111",
+                        "encryption": "none",
+                        "flow": "xtls-rprx-vision"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "streamSettings": {
+                "network": "tcp",
+                "security": "reality",
+                "realitySettings": {
+                  "serverName": "cdn.example.com",
+                  "publicKey": "pubkey",
+                  "shortId": "abcd",
+                  "fingerprint": "chrome"
+                }
+              }
+            },
+            {
+              "tag": "direct",
+              "protocol": "freedom"
+            }
+          ]
+        }"#;
+
+        let servers = parse_subscription_content(json, "sub-1").unwrap();
+        assert_eq!(servers.len(), 1);
+        assert_eq!(servers[0].address, "example.com");
+        assert_eq!(servers[0].security, "reality");
+        assert_eq!(servers[0].public_key.as_deref(), Some("pubkey"));
+        assert_eq!(servers[0].short_id.as_deref(), Some("abcd"));
+        assert_eq!(servers[0].subscription_id.as_deref(), Some("sub-1"));
+    }
 }
