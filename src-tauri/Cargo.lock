@@ -1152,7 +1152,7 @@ dependencies = [
 
 [[package]]
 name = "frieray"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "dirs",

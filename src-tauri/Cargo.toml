@@ -1,6 +1,6 @@
 [package]
 name = "frieray"
-version = "0.1.2"
+version = "0.2.0"
 description = "FrieRay — V2Ray клиент в стиле Фрирен"
 authors = ["you"]
 edition = "2021"

@@ -4,12 +4,16 @@
 
 FrieRay is a desktop V2Ray/Xray client for macOS built with Tauri 2, React, and Rust.
 
-It focuses on a clean desktop workflow for everyday use: subscription import, quick server selection, full-traffic TUN mode, built-in diagnostics, and a switchable interface style.
+It focuses on a clean desktop workflow for everyday use: subscription import, quick server selection, full-traffic TUN mode, built-in diagnostics, menu bar control, and a switchable interface style.
 
 ### Features
 
 - VLESS / VMess / Trojan subscription import
 - Server selection from a unified list
+- macOS menu bar / tray icon with popup
+- Quick connect / disconnect from the tray
+- Quick connect to the best server based on measured speed
+- Launch at login and background tray mode on macOS
 - Full-traffic TUN mode on macOS
 - System proxy mode
 - Per-server ping scan
@@ -46,7 +50,7 @@ Prebuilt macOS builds are available in GitHub Releases.
 
 Release file:
 
-- `FrieRay_0.1.2_aarch64.dmg`
+- `FrieRay_0.2.0_aarch64.dmg`
 
 ### Current Status
 
@@ -57,6 +61,9 @@ Implemented and available in the app:
 - Xray launch and shutdown
 - TUN helper installation on macOS
 - automatic TUN and proxy cleanup on startup and exit
+- macOS tray workflow with popup and quick actions
+- best-server quick connect from the tray
+- launch at login / background mode for macOS
 - dashboard quick TUN toggle
 - per-server ping and speed checks
 - classic mode without fantasy/anime visuals
@@ -120,12 +127,16 @@ macOS may request an administrator password once during this step. After install
 
 FrieRay — это десктопный V2Ray/Xray-клиент для macOS, написанный на Tauri 2, React и Rust.
 
-Приложение рассчитано на повседневное использование: импорт подписок, быстрый выбор сервера, TUN-режим для всего трафика, встроенная диагностика и переключаемый стиль интерфейса.
+Приложение рассчитано на повседневное использование: импорт подписок, быстрый выбор сервера, TUN-режим для всего трафика, встроенная диагностика, управление через menu bar и переключаемый стиль интерфейса.
 
 ### Возможности
 
 - импорт подписок VLESS / VMess / Trojan
 - выбор сервера из общего списка
+- иконка в menu bar / tray с popup-окном
+- быстрое подключение и отключение из трея
+- быстрое подключение к лучшему серверу по измеренной скорости
+- запуск при входе в систему и фоновый режим на macOS
 - TUN-режим для всего трафика в macOS
 - режим системного прокси
 - массовая проверка ping по серверам
@@ -162,7 +173,7 @@ FrieRay — это десктопный V2Ray/Xray-клиент для macOS, н
 
 Файл для скачивания:
 
-- `FrieRay_0.1.2_aarch64.dmg`
+- `FrieRay_0.2.0_aarch64.dmg`
 
 ### Текущий статус
 
@@ -173,6 +184,9 @@ FrieRay — это десктопный V2Ray/Xray-клиент для macOS, н
 - запуск и остановка Xray
 - установка TUN helper на macOS
 - автоматическая очистка TUN и прокси при старте и выходе
+- tray workflow для macOS с popup и быстрыми действиями
+- быстрое подключение к лучшему серверу из трея
+- запуск при входе в систему и работа в фоне на macOS
 - быстрый переключатель TUN на главной странице
 - проверка ping и скорости для серверов
 - классический режим без fantasy/anime-оформления
