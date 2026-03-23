@@ -7,7 +7,7 @@ use core::tun::TunManager;
 use core::xray::XrayManager;
 use models::server::{Server, Subscription};
 use models::settings::AppSettings;
-use tauri::Manager;
+use tauri::{Manager, RunEvent, WindowEvent};
 use tokio::sync::Mutex;
 use utils::log_buffer::LogBuffer;
 use utils::storage;
@@ -78,11 +78,14 @@ pub fn run() {
         .setup(|app| {
             let state = app.state::<AppState>();
             tauri::async_runtime::block_on(cleanup_network_state(&state, "startup"));
+            crate::core::tray::setup(app)?;
+            crate::core::tray::apply_startup_behavior(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             // Connection
             commands::connection::connect,
+            commands::connection::connect_best_server,
             commands::connection::disconnect,
             commands::connection::get_connection_status,
             commands::connection::get_current_server,
@@ -104,6 +107,7 @@ pub fn run() {
             commands::system::get_installed_apps,
             commands::system::install_tun_helper,
             commands::system::is_tun_ready,
+            commands::system::show_main_window,
             // Logs & Stats
             commands::logs::get_logs,
             commands::logs::clear_logs,
@@ -113,13 +117,43 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(|app_handle, event| {
-        if matches!(
-            event,
-            tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
-        ) {
+    app.run(|app_handle, event| match event {
+        RunEvent::Exit | RunEvent::ExitRequested { .. } => {
             let state = app_handle.state::<AppState>();
             tauri::async_runtime::block_on(cleanup_network_state(&state, "exit"));
         }
+        #[cfg(target_os = "macos")]
+        RunEvent::WindowEvent {
+            label,
+            event: WindowEvent::CloseRequested { api, .. },
+            ..
+        } if label == "main" => {
+            api.prevent_close();
+            let _ = crate::core::tray::hide_main_window(app_handle);
+        }
+        RunEvent::WindowEvent {
+            label,
+            event: WindowEvent::CloseRequested { api, .. },
+            ..
+        } if label == "tray-popup" => {
+            api.prevent_close();
+            let _ = app_handle
+                .get_webview_window("tray-popup")
+                .map(|window| window.hide());
+        }
+        RunEvent::WindowEvent {
+            label,
+            event: WindowEvent::Focused(false),
+            ..
+        } if label == "tray-popup" => {
+            let _ = app_handle
+                .get_webview_window("tray-popup")
+                .map(|window| window.hide());
+        }
+        #[cfg(target_os = "macos")]
+        RunEvent::Reopen { .. } => {
+            let _ = crate::core::tray::show_main_window(app_handle);
+        }
+        _ => {}
     });
 }

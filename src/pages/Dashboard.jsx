@@ -5,7 +5,7 @@ import * as api from '../api/tauri';
 import './Dashboard.css';
 
 const defaultSettings = {
-    general: { auto_connect: false, start_minimized: false, auto_update_subs: true, auto_update_interval_hours: 6 },
+    general: { auto_connect: false, start_minimized: false, launch_at_login: false, auto_update_subs: true, auto_update_interval_hours: 6 },
     proxy: { system_proxy: true, tun_mode: false, socks_port: 10808, http_port: 10809 },
     dns: { doh_server: 'https://dns.google/dns-query' },
     zapret: { enabled: false, strategy: 'auto', bypass_vpn: true, services: [] },

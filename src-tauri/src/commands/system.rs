@@ -1,25 +1,107 @@
 use crate::models::settings::AppSettings;
+use crate::utils::storage;
 use crate::AppState;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 #[tauri::command]
 pub async fn save_settings(
     settings: AppSettings,
     state: State<'_, AppState>,
+    app: AppHandle,
 ) -> Result<(), String> {
-    let config_path = dirs::config_dir()
-        .unwrap_or_default()
-        .join("frieray/settings.json");
+    #[cfg(target_os = "macos")]
+    sync_launch_agent(settings.general.launch_at_login)?;
 
-    let json = serde_json::to_string_pretty(&settings)
-        .map_err(|e| format!("Serialization error: {}", e))?;
-
-    std::fs::write(&config_path, json).map_err(|e| format!("Failed to save settings: {}", e))?;
+    storage::save_app_settings(&settings)?;
 
     let mut current = state.settings.lock().await;
     *current = settings;
+    drop(current);
 
+    let _ = crate::core::tray::refresh_tray_async(&app).await;
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn sync_launch_agent(enabled: bool) -> Result<(), String> {
+    let launch_agents_dir = dirs::home_dir()
+        .ok_or_else(|| "Не удалось определить домашнюю директорию".to_string())?
+        .join("Library/LaunchAgents");
+    std::fs::create_dir_all(&launch_agents_dir)
+        .map_err(|e| format!("Не удалось создать LaunchAgents: {}", e))?;
+
+    let plist_path = launch_agents_dir.join("com.dreamsoftware.frieray.plist");
+    if !enabled {
+        if plist_path.exists() {
+            std::fs::remove_file(&plist_path)
+                .map_err(|e| format!("Не удалось удалить login item: {}", e))?;
+        }
+        return Ok(());
+    }
+
+    let executable =
+        std::env::current_exe().map_err(|e| format!("Не удалось определить путь app: {}", e))?;
+    let program_args = if let Some(bundle_path) = app_bundle_path(&executable) {
+        format!(
+            "<array>\n    <string>/usr/bin/open</string>\n    <string>{}</string>\n  </array>",
+            xml_escape(&bundle_path.to_string_lossy())
+        )
+    } else {
+        format!(
+            "<array>\n    <string>{}</string>\n  </array>",
+            xml_escape(&executable.to_string_lossy())
+        )
+    };
+
+    let plist = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.dreamsoftware.frieray</string>
+  <key>ProgramArguments</key>
+  {program_args}
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <false/>
+</dict>
+</plist>
+"#
+    );
+
+    std::fs::write(&plist_path, plist)
+        .map_err(|e| format!("Не удалось записать login item: {}", e))?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn app_bundle_path(executable: &std::path::Path) -> Option<std::path::PathBuf> {
+    let macos_dir = executable.parent()?;
+    if macos_dir.file_name()? != "MacOS" {
+        return None;
+    }
+    let contents_dir = macos_dir.parent()?;
+    if contents_dir.file_name()? != "Contents" {
+        return None;
+    }
+    let bundle_dir = contents_dir.parent()?;
+    if bundle_dir.extension()? == "app" {
+        Some(bundle_dir.to_path_buf())
+    } else {
+        None
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn xml_escape(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
 }
 
 /// Install TUN helper (asks password once)
@@ -55,26 +137,15 @@ pub async fn is_tun_ready(state: State<'_, AppState>) -> Result<bool, String> {
 
 #[tauri::command]
 pub async fn load_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
-    let config_path = dirs::config_dir()
-        .unwrap_or_default()
-        .join("frieray/settings.json");
+    let settings = storage::load_app_settings();
+    let mut current = state.settings.lock().await;
+    *current = settings.clone();
+    Ok(settings)
+}
 
-    if config_path.exists() {
-        let json = std::fs::read_to_string(&config_path)
-            .map_err(|e| format!("Failed to read settings: {}", e))?;
-        let settings: AppSettings =
-            serde_json::from_str(&json).map_err(|e| format!("Settings parse error: {}", e))?;
-
-        let mut current = state.settings.lock().await;
-        *current = settings.clone();
-
-        Ok(settings)
-    } else {
-        let settings = AppSettings::default();
-        let mut current = state.settings.lock().await;
-        *current = settings.clone();
-        Ok(settings)
-    }
+#[tauri::command]
+pub fn show_main_window(app: AppHandle) -> Result<(), String> {
+    crate::core::tray::show_main_window(&app)
 }
 
 /// List installed applications (macOS)

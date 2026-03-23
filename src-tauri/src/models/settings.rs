@@ -12,6 +12,8 @@ pub struct AppSettings {
 pub struct GeneralSettings {
     pub auto_connect: bool,
     pub start_minimized: bool,
+    #[serde(default)]
+    pub launch_at_login: bool,
     pub auto_update_subs: bool,
     pub auto_update_interval_hours: u32,
 }
@@ -60,6 +62,7 @@ impl Default for AppSettings {
             general: GeneralSettings {
                 auto_connect: false,
                 start_minimized: false,
+                launch_at_login: false,
                 auto_update_subs: true,
                 auto_update_interval_hours: 6,
             },

@@ -6,8 +6,18 @@ import SplitTunnel from "./pages/SplitTunnel";
 import Routing from "./pages/Routing";
 import Logs from "./pages/Logs";
 import Settings from "./pages/Settings";
+import TrayPopup from "./pages/TrayPopup";
 
 function App() {
+  const windowLabel =
+    typeof window !== "undefined"
+      ? window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label
+      : null;
+
+  if (windowLabel === "tray-popup") {
+    return <TrayPopup />;
+  }
+
   return (
     <Layout>
       <Routes>

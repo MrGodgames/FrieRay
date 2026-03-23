@@ -297,7 +297,13 @@ fn parse_json_outbound(
                     .unwrap_or_default(),
                 encryption: value_as_string(user.and_then(|value| value.get("encryption")))
                     .or_else(|| value_as_string(outbound.get("security")))
-                    .unwrap_or_else(|| if protocol_str == "vless" { "none".into() } else { "auto".into() }),
+                    .unwrap_or_else(|| {
+                        if protocol_str == "vless" {
+                            "none".into()
+                        } else {
+                            "auto".into()
+                        }
+                    }),
                 flow: value_as_string(user.and_then(|value| value.get("flow")))
                     .or_else(|| value_as_string(outbound.get("flow"))),
                 network,
@@ -307,19 +313,25 @@ fn parse_json_outbound(
                     .or_else(|| value_as_string(tls.get("server_name"))),
                 fingerprint: value_as_string(security_block.get("fingerprint"))
                     .or_else(|| value_as_string(security_block.get("client_fingerprint")))
-                    .or_else(|| value_as_string(tls.get("utls").and_then(|value| value.get("fingerprint")))),
+                    .or_else(|| {
+                        value_as_string(tls.get("utls").and_then(|value| value.get("fingerprint")))
+                    }),
                 public_key: value_as_string(
                     stream
                         .get("realitySettings")
                         .and_then(|value| value.get("publicKey")),
                 )
-                .or_else(|| value_as_string(tls.get("reality").and_then(|value| value.get("public_key")))),
+                .or_else(|| {
+                    value_as_string(tls.get("reality").and_then(|value| value.get("public_key")))
+                }),
                 short_id: value_as_string(
                     stream
                         .get("realitySettings")
                         .and_then(|value| value.get("shortId")),
                 )
-                .or_else(|| value_as_string(tls.get("reality").and_then(|value| value.get("short_id")))),
+                .or_else(|| {
+                    value_as_string(tls.get("reality").and_then(|value| value.get("short_id")))
+                }),
                 path: extract_path(stream).or_else(|| extract_transport_path(transport)),
                 host: extract_host(stream).or_else(|| extract_transport_host(transport)),
                 service_name: value_as_string(
@@ -367,7 +379,9 @@ fn parse_json_outbound(
                     .or_else(|| value_as_string(tls.get("server_name"))),
                 fingerprint: value_as_string(security_block.get("fingerprint"))
                     .or_else(|| value_as_string(security_block.get("client_fingerprint")))
-                    .or_else(|| value_as_string(tls.get("utls").and_then(|value| value.get("fingerprint")))),
+                    .or_else(|| {
+                        value_as_string(tls.get("utls").and_then(|value| value.get("fingerprint")))
+                    }),
                 public_key: None,
                 short_id: None,
                 path: extract_path(stream).or_else(|| extract_transport_path(transport)),
@@ -481,8 +495,20 @@ fn value_as_u16(value: Option<&Value>) -> Option<u16> {
 
 fn extract_path(stream: &Value) -> Option<String> {
     value_as_string(stream.get("wsSettings").and_then(|value| value.get("path")))
-        .or_else(|| value_as_string(stream.get("xhttpSettings").and_then(|value| value.get("path"))))
-        .or_else(|| value_as_string(stream.get("httpupgradeSettings").and_then(|value| value.get("path"))))
+        .or_else(|| {
+            value_as_string(
+                stream
+                    .get("xhttpSettings")
+                    .and_then(|value| value.get("path")),
+            )
+        })
+        .or_else(|| {
+            value_as_string(
+                stream
+                    .get("httpupgradeSettings")
+                    .and_then(|value| value.get("path")),
+            )
+        })
 }
 
 fn extract_host(stream: &Value) -> Option<String> {
@@ -492,8 +518,20 @@ fn extract_host(stream: &Value) -> Option<String> {
             .and_then(|value| value.get("headers"))
             .and_then(|value| value.get("Host")),
     )
-    .or_else(|| value_as_string(stream.get("xhttpSettings").and_then(|value| value.get("host"))))
-    .or_else(|| value_as_string(stream.get("httpSettings").and_then(|value| value.get("host"))))
+    .or_else(|| {
+        value_as_string(
+            stream
+                .get("xhttpSettings")
+                .and_then(|value| value.get("host")),
+        )
+    })
+    .or_else(|| {
+        value_as_string(
+            stream
+                .get("httpSettings")
+                .and_then(|value| value.get("host")),
+        )
+    })
 }
 
 fn extract_transport_path(transport: &Value) -> Option<String> {

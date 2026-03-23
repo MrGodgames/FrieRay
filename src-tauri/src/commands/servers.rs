@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::process::Stdio;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use tokio::process::Command;
 use tokio::sync::Semaphore;
 
@@ -37,12 +37,27 @@ const PING_TIMEOUT_MS: u64 = 1800;
 const PING_BETWEEN_ATTEMPTS_MS: u64 = 120;
 const PING_FAILURE_PENALTY_MS: u32 = 35;
 const PING_MAX_RESOLVED_ADDRS: usize = 3;
+const AUTO_SELECT_SPEED_CANDIDATES: usize = 6;
+
+pub struct AutoSelectedServer {
+    pub server: Server,
+    pub reason: String,
+}
+
+#[derive(Clone, serde::Serialize)]
+pub struct AutoSelectProgress {
+    pub stage: String,
+    pub message: String,
+}
+
+pub const AUTO_SELECT_PROGRESS_EVENT: &str = "tray-autoselect-progress";
 
 #[tauri::command]
 pub async fn add_subscription(
     name: String,
     url: String,
     state: State<'_, AppState>,
+    app: tauri::AppHandle,
 ) -> Result<Subscription, String> {
     let sub = Subscription {
         id: uuid::Uuid::new_v4().to_string(),
@@ -61,24 +76,37 @@ pub async fn add_subscription(
     storage::save_subscriptions(&subs)?;
 
     log::info!("Subscription added: {}", sub.name);
+    let _ = crate::core::tray::refresh_tray_async(&app).await;
     Ok(sub)
 }
 
 #[tauri::command]
-pub async fn remove_subscription(id: String, state: State<'_, AppState>) -> Result<(), String> {
-    let mut subs = state.subscriptions.lock().await;
-    subs.retain(|s| s.id != id);
-    storage::save_subscriptions(&subs)?;
+pub async fn remove_subscription(
+    id: String,
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    {
+        let mut subs = state.subscriptions.lock().await;
+        subs.retain(|s| s.id != id);
+        storage::save_subscriptions(&subs)?;
+    }
 
-    let mut servers = state.servers.lock().await;
-    servers.retain(|s| s.subscription_id.as_deref() != Some(&id));
-    storage::save_servers(&servers)?;
+    {
+        let mut servers = state.servers.lock().await;
+        servers.retain(|s| s.subscription_id.as_deref() != Some(&id));
+        storage::save_servers(&servers)?;
+    }
 
+    let _ = crate::core::tray::refresh_tray_async(&app).await;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn update_subscriptions(state: State<'_, AppState>) -> Result<Vec<Server>, String> {
+pub async fn update_subscriptions(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<Vec<Server>, String> {
     let subs = state.subscriptions.lock().await.clone();
 
     if subs.is_empty() {
@@ -105,27 +133,33 @@ pub async fn update_subscriptions(state: State<'_, AppState>) -> Result<Vec<Serv
     }
 
     // Update server list
-    let mut servers = state.servers.lock().await;
-    servers.retain(|s| s.subscription_id.is_none());
-    servers.extend(all_servers.clone());
-    storage::save_servers(&servers)?;
+    let updated_servers = {
+        let mut servers = state.servers.lock().await;
+        servers.retain(|s| s.subscription_id.is_none());
+        servers.extend(all_servers.clone());
+        storage::save_servers(&servers)?;
+        servers.clone()
+    };
 
     // Update subscription metadata
-    let mut subs_lock = state.subscriptions.lock().await;
-    for sub in subs_lock.iter_mut() {
-        sub.server_count = servers
-            .iter()
-            .filter(|s| s.subscription_id.as_deref() == Some(&sub.id))
-            .count();
-        sub.last_update = Some(chrono_now());
+    {
+        let mut subs_lock = state.subscriptions.lock().await;
+        for sub in subs_lock.iter_mut() {
+            sub.server_count = updated_servers
+                .iter()
+                .filter(|s| s.subscription_id.as_deref() == Some(&sub.id))
+                .count();
+            sub.last_update = Some(chrono_now());
+        }
+        storage::save_subscriptions(&subs_lock)?;
     }
-    storage::save_subscriptions(&subs_lock)?;
 
-    if servers.is_empty() && !errors.is_empty() {
+    if updated_servers.is_empty() && !errors.is_empty() {
         return Err(format!("Ошибки: {}", errors.join("; ")));
     }
 
-    Ok(servers.clone())
+    let _ = crate::core::tray::refresh_tray_async(&app).await;
+    Ok(updated_servers)
 }
 
 #[tauri::command]
@@ -167,19 +201,25 @@ pub fn parse_link(link: String) -> Result<Server, String> {
 pub async fn set_active_server(
     server_id: String,
     state: State<'_, AppState>,
+    app: tauri::AppHandle,
 ) -> Result<Server, String> {
-    let servers = state.servers.lock().await;
-    let server = servers
-        .iter()
-        .find(|s| s.id == server_id)
-        .cloned()
-        .ok_or("Сервер не найден")?;
+    let server = {
+        let servers = state.servers.lock().await;
+        servers
+            .iter()
+            .find(|s| s.id == server_id)
+            .cloned()
+            .ok_or("Сервер не найден")?
+    };
 
-    let mut active = state.active_server.lock().await;
-    *active = Some(server.clone());
+    {
+        let mut active = state.active_server.lock().await;
+        *active = Some(server.clone());
+    }
     storage::save_active_server_id(&server.id)?;
 
     log::info!("Active server set: {}", server.name);
+    let _ = crate::core::tray::refresh_tray_async(&app).await;
     Ok(server)
 }
 
@@ -187,6 +227,66 @@ pub async fn set_active_server(
 pub async fn get_active_server(state: State<'_, AppState>) -> Result<Option<Server>, String> {
     let active = state.active_server.lock().await;
     Ok(active.clone())
+}
+
+pub async fn choose_best_server(
+    app: &AppHandle,
+    state: &AppState,
+) -> Result<AutoSelectedServer, String> {
+    let servers = state.servers.lock().await.clone();
+
+    if servers.is_empty() {
+        return Err("Нет серверов для подключения".into());
+    }
+
+    emit_auto_select_progress(app, "prepare", "Подбираю лучший сервер для подключения...");
+
+    if let Some(server) = best_server_by_saved_speed(&servers) {
+        let speed = server.speed_mbps.unwrap_or_default();
+        emit_auto_select_progress(
+            app,
+            "saved-speed",
+            &format!(
+                "Использую сохранённый speed test: {} ({:.1} Mb/s)",
+                server.name, speed
+            ),
+        );
+        return Ok(AutoSelectedServer {
+            server,
+            reason: format!("по скорости {:.1} Mb/s", speed),
+        });
+    }
+
+    state
+        .logs
+        .add(
+            "info",
+            "Автовыбор сервера: нет данных speed test, подбираю кандидатов и измеряю скорость...",
+        )
+        .await;
+    emit_auto_select_progress(app, "ping", "Проверяю доступность серверов...");
+
+    let measured_servers = refresh_ping_snapshot(state, &servers).await?;
+    let speed_candidates = shortlist_servers_for_speed_test(&measured_servers);
+    emit_auto_select_progress(
+        app,
+        "speed-test",
+        &format!(
+            "Тестирую скорость лучших кандидатов: {}",
+            speed_candidates.len()
+        ),
+    );
+    let tested_servers = refresh_speed_snapshot(state, &speed_candidates).await?;
+
+    if let Some(server) = best_server_by_saved_speed(&tested_servers) {
+        let speed = server.speed_mbps.unwrap_or_default();
+        return Ok(AutoSelectedServer {
+            server,
+            reason: format!("по скорости {:.1} Mb/s", speed),
+        });
+    }
+
+    Err("Не удалось определить лучший сервер по скорости".into())
 }
 
 /// Ping a single server via TCP connect
@@ -659,6 +759,176 @@ async fn measure_server_ping(address: &str, port: u16) -> Result<PingProbe, Stri
         ping: best_ping,
         reachable: best_ping.is_some(),
     })
+}
+
+fn best_server_by_saved_speed(servers: &[Server]) -> Option<Server> {
+    let mut candidates: Vec<Server> = servers
+        .iter()
+        .filter(|server| server.speed_reachable != Some(false) && server.speed_mbps.is_some())
+        .cloned()
+        .collect();
+
+    candidates.sort_by(compare_servers_for_auto_select);
+    candidates.into_iter().next()
+}
+
+fn compare_servers_for_auto_select(left: &Server, right: &Server) -> std::cmp::Ordering {
+    match (left.speed_mbps, right.speed_mbps) {
+        (Some(ls), Some(rs)) => rs
+            .partial_cmp(&ls)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| compare_ping(left, right))
+            .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase())),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => compare_ping(left, right)
+            .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase())),
+    }
+}
+
+fn compare_ping(left: &Server, right: &Server) -> std::cmp::Ordering {
+    match (left.ping, right.ping) {
+        (Some(lp), Some(rp)) => lp.cmp(&rp),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    }
+}
+
+async fn refresh_ping_snapshot(
+    state: &AppState,
+    current_servers: &[Server],
+) -> Result<Vec<Server>, String> {
+    let semaphore = std::sync::Arc::new(Semaphore::new(PING_CONCURRENCY));
+    let mut join_set = tokio::task::JoinSet::new();
+
+    for server in current_servers {
+        let permit_pool = semaphore.clone();
+        let server_id = server.id.clone();
+        let addr = server.address.clone();
+        let port = server.port;
+        join_set.spawn(async move {
+            let _permit = permit_pool.acquire_owned().await.ok();
+            (server_id, measure_server_ping(&addr, port).await.ok())
+        });
+    }
+
+    let mut updated_servers = current_servers.to_vec();
+    while let Some(result) = join_set.join_next().await {
+        if let Ok((server_id, probe)) = result {
+            if let Some(server) = updated_servers
+                .iter_mut()
+                .find(|server| server.id == server_id)
+            {
+                match probe {
+                    Some(probe) => {
+                        server.ping = probe.ping;
+                        server.reachable = Some(probe.reachable);
+                        server.ping_checking = false;
+                        if !probe.reachable {
+                            server.speed_mbps = None;
+                            server.speed_reachable = Some(false);
+                        }
+                    }
+                    None => {
+                        server.ping = None;
+                        server.reachable = Some(false);
+                        server.ping_checking = false;
+                        server.speed_mbps = None;
+                        server.speed_reachable = Some(false);
+                    }
+                }
+            }
+        }
+    }
+
+    updated_servers.sort_by(compare_ping);
+
+    {
+        let mut state_servers = state.servers.lock().await;
+        *state_servers = updated_servers.clone();
+    }
+    storage::save_servers(&updated_servers)?;
+
+    Ok(updated_servers)
+}
+
+fn shortlist_servers_for_speed_test(servers: &[Server]) -> Vec<Server> {
+    let mut candidates: Vec<Server> = servers
+        .iter()
+        .filter(|server| server.reachable != Some(false) && server.ping.is_some())
+        .cloned()
+        .collect();
+
+    candidates.sort_by(compare_ping);
+    candidates.truncate(AUTO_SELECT_SPEED_CANDIDATES);
+
+    if candidates.is_empty() {
+        servers.to_vec()
+    } else {
+        candidates
+    }
+}
+
+async fn refresh_speed_snapshot(
+    state: &AppState,
+    candidates: &[Server],
+) -> Result<Vec<Server>, String> {
+    let settings = state.settings.lock().await.clone();
+
+    if candidates.is_empty() {
+        return Err("Нет кандидатов для измерения скорости".into());
+    }
+
+    let semaphore = std::sync::Arc::new(Semaphore::new(SERVER_SPEED_TEST_CONCURRENCY));
+    let mut join_set = tokio::task::JoinSet::new();
+
+    for server in candidates {
+        let permit_pool = semaphore.clone();
+        let settings = settings.clone();
+        let server = server.clone();
+        join_set.spawn(async move {
+            let _permit = permit_pool.acquire_owned().await.ok();
+            let speed = speed_test_server(&server, &settings).await.ok();
+            (server.id.clone(), speed)
+        });
+    }
+
+    let mut measured_by_id = HashMap::new();
+    while let Some(result) = join_set.join_next().await {
+        if let Ok((server_id, speed)) = result {
+            measured_by_id.insert(server_id, speed);
+        }
+    }
+
+    let mut updated_servers = state.servers.lock().await.clone();
+    for server in &mut updated_servers {
+        if let Some(speed) = measured_by_id.get(&server.id) {
+            server.speed_mbps = *speed;
+            server.speed_reachable = Some(speed.is_some());
+            server.speed_checking = false;
+        }
+    }
+
+    updated_servers.sort_by(compare_servers_for_auto_select);
+
+    {
+        let mut state_servers = state.servers.lock().await;
+        *state_servers = updated_servers.clone();
+    }
+    storage::save_servers(&updated_servers)?;
+
+    Ok(updated_servers)
+}
+
+fn emit_auto_select_progress(app: &AppHandle, stage: &str, message: &str) {
+    let _ = app.emit(
+        AUTO_SELECT_PROGRESS_EVENT,
+        AutoSelectProgress {
+            stage: stage.to_string(),
+            message: message.to_string(),
+        },
+    );
 }
 
 async fn measure_socket_addr_ping(socket_addr: SocketAddr) -> Option<u32> {

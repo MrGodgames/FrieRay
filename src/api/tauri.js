@@ -15,6 +15,7 @@ async function invoke(command, args = {}) {
 
 // ─── Connection ───
 export async function connect(server) { return invoke('connect', { server }); }
+export async function connectBestServer() { return invoke('connect_best_server'); }
 export async function disconnect() { return invoke('disconnect'); }
 export async function getConnectionStatus() { return (await invoke('get_connection_status')) ?? false; }
 export async function getCurrentServer() { return invoke('get_current_server'); }
@@ -40,6 +41,7 @@ export async function loadSettings() { return invoke('load_settings'); }
 export async function getInstalledApps() { return (await invoke('get_installed_apps')) ?? []; }
 export async function installTunHelper() { return invoke('install_tun_helper'); }
 export async function isTunReady() { return (await invoke('is_tun_ready')) ?? false; }
+export async function showMainWindow() { return invoke('show_main_window'); }
 
 // ─── Logs & Stats ───
 export async function getLogs() { return (await invoke('get_logs')) ?? []; }

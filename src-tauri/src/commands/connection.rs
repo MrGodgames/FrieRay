@@ -1,9 +1,61 @@
 use crate::models::server::Server;
 use crate::AppState;
-use tauri::State;
+use tauri::{Emitter, Manager, State};
 
-#[tauri::command]
-pub async fn connect(server: Server, state: State<'_, AppState>) -> Result<String, String> {
+pub async fn connect_best_server_with_app(app: &tauri::AppHandle) -> Result<String, String> {
+    let state = app.state::<AppState>();
+    let selection = crate::commands::servers::choose_best_server(app, &state).await?;
+
+    {
+        let mut active = state.active_server.lock().await;
+        *active = Some(selection.server.clone());
+    }
+    crate::utils::storage::save_active_server_id(&selection.server.id)?;
+
+    state
+        .logs
+        .add(
+            "info",
+            &format!(
+                "Автовыбор сервера: {} {}",
+                selection.server.name, selection.reason
+            ),
+        )
+        .await;
+    let _ = app.emit(
+        crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
+        crate::commands::servers::AutoSelectProgress {
+            stage: "connect".to_string(),
+            message: format!("Подключаюсь к {}...", selection.server.name),
+        },
+    );
+
+    let result = connect_with_state(selection.server, &state).await;
+    match &result {
+        Ok(message) => {
+            let _ = app.emit(
+                crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
+                crate::commands::servers::AutoSelectProgress {
+                    stage: "done".to_string(),
+                    message: message.clone(),
+                },
+            );
+        }
+        Err(error) => {
+            let _ = app.emit(
+                crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
+                crate::commands::servers::AutoSelectProgress {
+                    stage: "error".to_string(),
+                    message: error.clone(),
+                },
+            );
+        }
+    }
+    let _ = crate::core::tray::refresh_tray_async(app).await;
+    result
+}
+
+pub async fn connect_with_state(server: Server, state: &AppState) -> Result<String, String> {
     state
         .logs
         .add(
@@ -104,8 +156,7 @@ pub async fn connect(server: Server, state: State<'_, AppState>) -> Result<Strin
     Ok(format!("Подключено к {}", server.name))
 }
 
-#[tauri::command]
-pub async fn disconnect(state: State<'_, AppState>) -> Result<String, String> {
+pub async fn disconnect_with_state(state: &AppState) -> Result<String, String> {
     state.logs.add("info", "Отключение...").await;
 
     // Stop TUN first (restores routes)
@@ -133,6 +184,32 @@ pub async fn disconnect(state: State<'_, AppState>) -> Result<String, String> {
 
     state.logs.add("info", "Отключено").await;
     Ok("Отключено".into())
+}
+
+#[tauri::command]
+pub async fn connect(
+    server: Server,
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let result = connect_with_state(server, &state).await;
+    let _ = crate::core::tray::refresh_tray_async(&app).await;
+    result
+}
+
+#[tauri::command]
+pub async fn connect_best_server(app: tauri::AppHandle) -> Result<String, String> {
+    connect_best_server_with_app(&app).await
+}
+
+#[tauri::command]
+pub async fn disconnect(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let result = disconnect_with_state(&state).await;
+    let _ = crate::core::tray::refresh_tray_async(&app).await;
+    result
 }
 
 #[tauri::command]

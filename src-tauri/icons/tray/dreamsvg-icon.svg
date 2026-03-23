@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <!-- Filled facets -->
+    <polygon points="11,1 6,8.5 7,13 11,14.5" fill="#7B5EA7" stroke="none"/>
+    <polygon points="11,1 16,8.5 15,13 11,14.5" fill="#B48FE0" stroke="none"/>
+    <polygon points="11,14.5 7,13 7,19 11,21" fill="#6347A0" stroke="none"/>
+    <polygon points="11,14.5 15,13 15,19 11,21" fill="#9B72D0" stroke="none"/>
+    <polygon points="11,1 13.5,8.5 11,8.5 8.5,8.5" fill="#D4B8F5" stroke="none"/>
+    <!-- Side crystal fills -->
+    <polygon points="6,8.5 3.5,11 4,16 6,17" fill="#7B5EA7" stroke="none"/>
+    <polygon points="16,8.5 18.5,11 18,16 16,17" fill="#9B72D0" stroke="none"/>
+
+    <!-- Outlines -->
+    <g fill="none" stroke-linejoin="round" stroke-linecap="round">
+      <polygon points="11,1 16,8.5 15,19 11,21 7,19 6,8.5" stroke="#C9A8F0" stroke-width="1.1"/>
+      <line x1="11" y1="1" x2="11" y2="21" stroke="#C9A8F0" stroke-width="0.7" opacity="0.7"/>
+      <line x1="6" y1="8.5" x2="16" y2="8.5" stroke="#C9A8F0" stroke-width="0.7" opacity="0.7"/>
+      <polyline points="8.5,8.5 11,1 13.5,8.5" stroke="#E0C8FF" stroke-width="0.7" opacity="0.6"/>
+      <line x1="7" y1="13" x2="11" y2="8.5" stroke="#C9A8F0" stroke-width="0.5" opacity="0.5"/>
+      <line x1="15" y1="13" x2="11" y2="8.5" stroke="#C9A8F0" stroke-width="0.5" opacity="0.5"/>
+      <line x1="7" y1="19" x2="11" y2="14.5" stroke="#C9A8F0" stroke-width="0.5" opacity="0.5"/>
+      <line x1="15" y1="19" x2="11" y2="14.5" stroke="#C9A8F0" stroke-width="0.5" opacity="0.5"/>
+      <line x1="7" y1="13" x2="15" y2="13" stroke="#C9A8F0" stroke-width="0.5" opacity="0.45"/>
+      <polyline points="6,8.5 3.5,11 4,16 6,17" stroke="#C9A8F0" stroke-width="0.75"/>
+      <line x1="3.5" y1="11" x2="6" y2="14" stroke="#C9A8F0" stroke-width="0.5" opacity="0.5"/>
+      <polyline points="16,8.5 18.5,11 18,16 16,17" stroke="#C9A8F0" stroke-width="0.75"/>
+      <line x1="18.5" y1="11" x2="16" y2="14" stroke="#C9A8F0" stroke-width="0.5" opacity="0.5"/>
+    </g>
+  </g>
+</svg>

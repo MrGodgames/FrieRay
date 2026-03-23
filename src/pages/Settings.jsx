@@ -9,7 +9,7 @@ import './Settings.css';
 export default function Settings() {
     const { theme, setTheme, uiStyle, setUiStyle, isClassic } = useTheme();
     const [settings, setSettings] = useState({
-        general: { auto_connect: false, start_minimized: false, auto_update_subs: true, auto_update_interval_hours: 6 },
+        general: { auto_connect: false, start_minimized: false, launch_at_login: false, auto_update_subs: true, auto_update_interval_hours: 6 },
         proxy: { system_proxy: true, tun_mode: false, socks_port: 10808, http_port: 10809 },
         dns: { doh_server: 'https://dns.google/dns-query' },
         zapret: { enabled: false, strategy: 'auto', bypass_vpn: true, services: [] },
@@ -139,9 +139,16 @@ export default function Settings() {
                             <Toggle
                                 id="start-minimized"
                                 label="Запускать свёрнуто"
-                                description="Окно не появляется при старте"
+                                description="Стартует в tray и без открытия главного окна"
                                 checked={settings.general.start_minimized}
                                 onChange={(v) => set('general', 'start_minimized', v)}
+                            />
+                            <Toggle
+                                id="launch-at-login"
+                                label="Запускать при входе в систему"
+                                description="На macOS создаёт login item и позволяет держать FrieRay в фоне"
+                                checked={settings.general.launch_at_login}
+                                onChange={(v) => set('general', 'launch_at_login', v)}
                             />
                             <Toggle
                                 id="auto-update-subs"
