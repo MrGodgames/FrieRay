@@ -1,18 +1,22 @@
 .fr-card {
     background: var(--glass-bg);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     overflow: visible;
-    transition: all var(--transition-normal);
+    transition:
+        border-color var(--transition-normal),
+        box-shadow var(--transition-normal),
+        transform var(--transition-normal),
+        background-color var(--transition-normal);
     position: relative;
 }
 
 .fr-card-glass {
     background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border-color: var(--glass-border);
 }
 
@@ -45,5 +49,5 @@
 
 .fr-card:hover {
     border-color: rgba(139, 106, 255, 0.2);
-    box-shadow: 0 0 20px rgba(139, 106, 255, 0.05);
+    box-shadow: 0 0 14px rgba(139, 106, 255, 0.04);
 }

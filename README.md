@@ -8,11 +8,12 @@ It focuses on a clean desktop workflow for everyday use: subscription import, qu
 
 ### Features
 
-- VLESS / VMess / Trojan subscription import
+- VLESS / VMess / Trojan / Shadowsocks subscription import
 - Server selection from a unified list
 - macOS menu bar / tray icon with popup
 - Quick connect / disconnect from the tray
 - Quick connect to the best server based on measured speed
+- Progress feedback while the tray selects and tests the best server
 - Launch at login and background tray mode on macOS
 - Full-traffic TUN mode on macOS
 - System proxy mode
@@ -50,7 +51,7 @@ Prebuilt macOS builds are available in GitHub Releases.
 
 Release file:
 
-- `FrieRay_0.2.0_aarch64.dmg`
+- `FrieRay_0.2.1_aarch64.dmg`
 
 ### Current Status
 
@@ -131,11 +132,12 @@ FrieRay — это десктопный V2Ray/Xray-клиент для macOS, н
 
 ### Возможности
 
-- импорт подписок VLESS / VMess / Trojan
+- импорт подписок VLESS / VMess / Trojan / Shadowsocks
 - выбор сервера из общего списка
 - иконка в menu bar / tray с popup-окном
 - быстрое подключение и отключение из трея
 - быстрое подключение к лучшему серверу по измеренной скорости
+- индикация прогресса, пока tray подбирает и тестирует лучший сервер
 - запуск при входе в систему и фоновый режим на macOS
 - TUN-режим для всего трафика в macOS
 - режим системного прокси
@@ -173,7 +175,7 @@ FrieRay — это десктопный V2Ray/Xray-клиент для macOS, н
 
 Файл для скачивания:
 
-- `FrieRay_0.2.0_aarch64.dmg`
+- `FrieRay_0.2.1_aarch64.dmg`
 
 ### Текущий статус
 

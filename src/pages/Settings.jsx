@@ -262,7 +262,7 @@ export default function Settings() {
                     <CardBody>
                         <div className="about-info">
                             <div className="about-logo text-gradient">FrieRay</div>
-                            <div className="about-version">v0.2.0</div>
+                            <div className="about-version">v0.2.1</div>
                             <p className="about-desc">
                                 {isClassic
                                     ? 'Минималистичный V2Ray клиент без аниме-стилистики'

@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import Card, { CardBody } from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import { useTheme } from '../hooks/useTheme';
 import * as api from '../api/tauri';
@@ -11,40 +9,82 @@ const AUTO_SELECT_PROGRESS_EVENT = 'tray-autoselect-progress';
 
 export default function TrayPopup() {
     const { isClassic } = useTheme();
-    const [servers, setServers] = useState([]);
     const [activeServer, setActiveServer] = useState(null);
     const [currentServer, setCurrentServer] = useState(null);
     const [connected, setConnected] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState(null);
     const [progress, setProgress] = useState(null);
+    const [ping, setPing] = useState(null);
+    const [startTime, setStartTime] = useState(null);
+    const [duration, setDuration] = useState('00:00:00');
+    const mountedRef = useRef(true);
 
     const refresh = async () => {
-        const [status, active, current, loadedServers] = await Promise.all([
+        const [status, active, current] = await Promise.all([
             api.getConnectionStatus(),
             api.getActiveServer(),
             api.getCurrentServer(),
-            api.getServers(),
         ]);
         setConnected(status);
         setActiveServer(active || null);
         setCurrentServer(current || null);
-        setServers(loadedServers || []);
+        if (status && !startTime) setStartTime(Date.now());
+        if (!status) {
+            setStartTime(null);
+            setDuration('00:00:00');
+        }
     };
 
     useEffect(() => {
+        mountedRef.current = true;
         const load = async () => {
             try {
                 await refresh();
             } catch (e) {
-                setError(String(e));
+                if (mountedRef.current) setError(String(e));
             }
         };
 
         load();
         const interval = setInterval(load, 3000);
-        return () => clearInterval(interval);
+        return () => {
+            mountedRef.current = false;
+            clearInterval(interval);
+        };
     }, []);
+
+    useEffect(() => {
+        if (!connected) {
+            setPing(null);
+            return;
+        }
+        const doPing = async () => {
+            const server = currentServer || activeServer;
+            if (!server) return;
+            try {
+                const ms = await api.pingServer(server.address, server.port);
+                if (mountedRef.current) setPing(ms);
+            } catch {
+                if (mountedRef.current) setPing(null);
+            }
+        };
+        doPing();
+        const interval = setInterval(doPing, 10000);
+        return () => clearInterval(interval);
+    }, [connected, currentServer, activeServer]);
+
+    useEffect(() => {
+        if (!connected || !startTime) return;
+        const tick = setInterval(() => {
+            const diff = Math.floor((Date.now() - startTime) / 1000);
+            const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+            const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+            const s = String(diff % 60).padStart(2, '0');
+            setDuration(`${h}:${m}:${s}`);
+        }, 1000);
+        return () => clearInterval(tick);
+    }, [connected, startTime]);
 
     useEffect(() => {
         let unsubscribe;
@@ -63,15 +103,7 @@ export default function TrayPopup() {
         };
     }, []);
 
-    const orderedServers = useMemo(() => {
-        return [...servers].sort((left, right) => {
-            const leftCurrent = currentServer?.id === left.id;
-            const rightCurrent = currentServer?.id === right.id;
-            const leftActive = activeServer?.id === left.id;
-            const rightActive = activeServer?.id === right.id;
-            return rightCurrent - leftCurrent || rightActive - leftActive || left.name.localeCompare(right.name);
-        });
-    }, [servers, activeServer, currentServer]);
+    const pingTone = ping === null ? 'muted' : ping < 100 ? 'good' : ping < 200 ? 'warn' : 'bad';
 
     const handleConnectToggle = async () => {
         setBusy(true);
@@ -93,24 +125,7 @@ export default function TrayPopup() {
         }
     };
 
-    const handleSelectServer = async (server) => {
-        setBusy(true);
-        setError(null);
-        try {
-            setProgress({ stage: 'switch', message: `Переключаюсь на ${server.name}...` });
-            await api.setActiveServer(server.id);
-            if (connected) {
-                await api.disconnect();
-                await api.connect(server);
-            }
-            await refresh();
-        } catch (e) {
-            setError(String(e));
-        } finally {
-            setBusy(false);
-            setTimeout(() => setProgress(null), 500);
-        }
-    };
+
 
     const handleOpenApp = async () => {
         setError(null);
@@ -121,102 +136,68 @@ export default function TrayPopup() {
         }
     };
 
-    const handleHide = async () => {
-        try {
-            await getCurrentWindow().hide();
-        } catch (e) {
-            setError(String(e));
-        }
-    };
+
 
     return (
         <div className={`tray-popup-shell ${isClassic ? 'classic' : 'fantasy'}`}>
-            <div className="tray-popup-bg" />
-            <Card variant="glass" hover={false} className="tray-popup-card">
-                <CardBody className="tray-popup-body">
-                    <div className="tray-popup-header">
-                        <div>
-                            <div className="tray-popup-title-row">
-                                <span className="tray-popup-brand">FrieRay</span>
-                                <span className={`tray-popup-status ${connected ? 'connected' : 'idle'}`}>
-                                    {connected ? 'Подключено' : 'Отключено'}
-                                </span>
-                            </div>
-                            <p className="tray-popup-subtitle">
-                                {currentServer ? currentServer.name : activeServer ? activeServer.name : 'Выбери сервер для быстрого подключения'}
-                            </p>
-                        </div>
-                        <button className="tray-popup-close" onClick={handleHide} aria-label="Скрыть popup">
-                            ✕
-                        </button>
+            <div className="tray-popup-header">
+                <div>
+                    <div className="tray-popup-title-row">
+                        <span className="tray-popup-brand">FrieRay</span>
+                        <span className={`tray-popup-status ${connected ? 'connected' : 'idle'}`}>
+                            {connected ? 'Подключено' : 'Отключено'}
+                        </span>
                     </div>
+                    <p className="tray-popup-subtitle">
+                        {currentServer ? currentServer.name : activeServer ? activeServer.name : 'Выбери сервер для быстрого подключения'}
+                    </p>
+                </div>
+            </div>
 
-                    {error && <div className="tray-popup-error">{error}</div>}
+            {error && <div className="tray-popup-error">{error}</div>}
 
-                    {busy && progress && (
-                        <div className={`tray-popup-progress stage-${progress.stage || 'working'}`}>
-                            <div className="tray-popup-progress-orb">
-                                <span />
-                                <span />
-                                <span />
-                            </div>
-                            <div className="tray-popup-progress-copy">
-                                <div className="tray-popup-progress-title">Подключение в процессе</div>
-                                <div className="tray-popup-progress-text">{progress.message}</div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="tray-popup-actions">
-                        <Button
-                            variant={connected ? 'ghost' : 'accent'}
-                            size="sm"
-                            loading={busy}
-                            onClick={handleConnectToggle}
-                        >
-                            {connected ? 'Отключить' : 'Подключить лучший'}
-                        </Button>
-                        <Button variant="secondary" size="sm" onClick={handleOpenApp}>
-                            Открыть приложение
-                        </Button>
+            {busy && progress && (
+                <div className={`tray-popup-progress stage-${progress.stage || 'working'}`}>
+                    <div className="tray-popup-progress-orb">
+                        <span />
+                        <span />
+                        <span />
                     </div>
-
-                    <div className="tray-popup-section">
-                        <div className="tray-popup-section-title">Серверы</div>
-                        <div className="tray-popup-server-list">
-                            {orderedServers.length === 0 ? (
-                                <div className="tray-popup-empty">Нет серверов</div>
-                            ) : (
-                                orderedServers.map(server => {
-                                    const isActive = activeServer?.id === server.id;
-                                    const isCurrent = currentServer?.id === server.id;
-                                    return (
-                                        <button
-                                            key={server.id}
-                                            className={`tray-popup-server ${isActive ? 'active' : ''} ${isCurrent ? 'current' : ''}`}
-                                            onClick={() => handleSelectServer(server)}
-                                            disabled={busy}
-                                        >
-                                            <div className="tray-popup-server-main">
-                                                <span className="tray-popup-server-name">{server.name}</span>
-                                                <span className="tray-popup-server-protocol">
-                                                    {typeof server.protocol === 'string' ? server.protocol.toUpperCase() : 'VLESS'}
-                                                </span>
-                                            </div>
-                                            <div className="tray-popup-server-meta">
-                                                <span>{server.address}:{server.port}</span>
-                                                <span className="tray-popup-server-state">
-                                                    {isCurrent ? 'Сейчас подключён' : isActive ? 'Выбран' : ' '}
-                                                </span>
-                                            </div>
-                                        </button>
-                                    );
-                                })
-                            )}
-                        </div>
+                    <div className="tray-popup-progress-copy">
+                        <div className="tray-popup-progress-title">Подключение в процессе</div>
+                        <div className="tray-popup-progress-text">{progress.message}</div>
                     </div>
-                </CardBody>
-            </Card>
+                </div>
+            )}
+
+            <div className="tray-popup-actions">
+                <Button
+                    variant={connected ? 'ghost' : 'accent'}
+                    size="sm"
+                    loading={busy}
+                    onClick={handleConnectToggle}
+                >
+                    {connected ? 'Отключить' : 'Подключить лучший'}
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handleOpenApp}>
+                    Открыть приложение
+                </Button>
+            </div>
+
+            <div className="tray-popup-stats">
+                <div className={`tray-popup-stat ping-${pingTone}`}>
+                    <span className="tray-popup-stat-label">Пинг</span>
+                    <span className="tray-popup-stat-value">
+                        {ping === null ? '—' : `${ping} ms`}
+                    </span>
+                </div>
+                <div className="tray-popup-stat">
+                    <span className="tray-popup-stat-label">Время подключения</span>
+                    <span className="tray-popup-stat-value">
+                        {connected ? duration : '—'}
+                    </span>
+                </div>
+            </div>
         </div>
     );
 }

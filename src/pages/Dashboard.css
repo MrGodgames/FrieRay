@@ -40,8 +40,8 @@
     width: 100%;
     max-width: 560px;
     background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border-radius: var(--radius-xl);
     padding: var(--space-2xl) var(--space-xl);
     position: relative;
@@ -131,7 +131,12 @@
     border-radius: var(--radius-full);
     padding: 8px 12px;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        border-color var(--transition-fast),
+        color var(--transition-fast),
+        transform var(--transition-fast),
+        box-shadow var(--transition-fast);
     flex-shrink: 0;
 }
 
@@ -180,7 +185,7 @@
     border-radius: var(--radius-full);
     background: rgba(255, 255, 255, 0.1);
     position: relative;
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast);
 }
 
 .dashboard-tun-toggle-thumb {
@@ -191,7 +196,7 @@
     position: absolute;
     top: 3px;
     left: 3px;
-    transition: all var(--transition-fast);
+    transition: transform var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .dashboard-tun-toggle.active .dashboard-tun-toggle-track {
@@ -201,7 +206,7 @@
 .dashboard-tun-toggle.active .dashboard-tun-toggle-thumb {
     transform: translateX(18px);
     background: #fff;
-    box-shadow: 0 0 10px rgba(45, 232, 160, 0.35);
+    box-shadow: 0 0 6px rgba(45, 232, 160, 0.28);
 }
 
 .dashboard-tun-toggle-text {

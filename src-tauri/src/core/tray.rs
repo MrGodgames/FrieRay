@@ -22,7 +22,7 @@ const MENU_TOGGLE_WINDOW: &str = "tray-toggle-window";
 const MENU_QUIT: &str = "tray-quit";
 const MENU_SERVER_PREFIX: &str = "tray-server:";
 const TRAY_POPUP_WIDTH: f64 = 360.0;
-const TRAY_POPUP_HEIGHT: f64 = 440.0;
+const TRAY_POPUP_HEIGHT: f64 = 260.0;
 const TRAY_POPUP_MARGIN: f64 = 10.0;
 const TRAY_ICON: &[u8] = include_bytes!("../../icons/tray/dreamsvg-icon.png");
 
@@ -272,7 +272,8 @@ fn ensure_tray_popup_window(app: &AppHandle) -> Result<(), String> {
         .skip_taskbar(true)
         .always_on_top(true)
         .visible_on_all_workspaces(true)
-        .shadow(true)
+        .transparent(true)
+        .shadow(false)
         .build()
         .map_err(|e| e.to_string())?;
 

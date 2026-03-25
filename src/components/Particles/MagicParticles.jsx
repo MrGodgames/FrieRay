@@ -6,20 +6,20 @@ export default function MagicParticles() {
     const canvasRef = useRef(null);
     const animationRef = useRef(null);
     const particlesRef = useRef([]);
+    const viewportRef = useRef({ width: 0, height: 0 });
     const { theme } = useTheme();
 
-    const createParticle = useCallback((canvas) => {
+    const createParticle = useCallback((viewport, motionScale = 1) => {
         return {
-            x: Math.random() * canvas.width,
-            y: canvas.height + Math.random() * 100,
-            size: Math.random() * 3 + 1,
-            speedX: (Math.random() - 0.5) * 0.5,
-            speedY: -(Math.random() * 1 + 0.3),
-            opacity: Math.random() * 0.6 + 0.2,
-            fadeSpeed: Math.random() * 0.003 + 0.001,
-            hue: Math.random() > 0.5 ? 160 : 270, // green or purple
+            x: Math.random() * viewport.width,
+            y: viewport.height + Math.random() * 120,
+            size: Math.random() * 2.2 + 0.9,
+            speedX: (Math.random() - 0.5) * 0.22 * motionScale,
+            speedY: -(Math.random() * 0.55 + 0.18) * motionScale,
+            opacity: Math.random() * 0.28 + 0.12,
+            hue: Math.random() > 0.5 ? 160 : 270,
             pulse: Math.random() * Math.PI * 2,
-            pulseSpeed: Math.random() * 0.02 + 0.01,
+            pulseSpeed: (Math.random() * 0.01 + 0.004) * motionScale,
         };
     }, []);
 
@@ -27,72 +27,115 @@ export default function MagicParticles() {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
-        const maxParticles = 50;
+        const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+        if (!ctx) return;
 
-        const handleResize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        let sceneConfig = {
+            particleCount: 24,
+            motionScale: 1,
+            frameTime: 40,
+            dpr: 1,
         };
 
-        handleResize();
+        const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+        const getSceneConfig = () => {
+            const isCompact = window.innerWidth < 900;
+            const prefersReducedMotion = mediaQuery.matches;
+
+            return {
+                particleCount: prefersReducedMotion ? 10 : isCompact ? 14 : 22,
+                motionScale: prefersReducedMotion ? 0.65 : 1,
+                frameTime: prefersReducedMotion ? 64 : 40,
+                dpr: Math.min(window.devicePixelRatio || 1, isCompact ? 1.1 : 1.25),
+            };
+        };
+
+        const rebuildScene = () => {
+            sceneConfig = getSceneConfig();
+            viewportRef.current = {
+                width: window.innerWidth,
+                height: window.innerHeight,
+            };
+
+            canvas.style.width = `${viewportRef.current.width}px`;
+            canvas.style.height = `${viewportRef.current.height}px`;
+            canvas.width = Math.floor(viewportRef.current.width * sceneConfig.dpr);
+            canvas.height = Math.floor(viewportRef.current.height * sceneConfig.dpr);
+            ctx.setTransform(sceneConfig.dpr, 0, 0, sceneConfig.dpr, 0, 0);
+            particlesRef.current = Array.from(
+                { length: sceneConfig.particleCount },
+                () => createParticle(viewportRef.current, sceneConfig.motionScale)
+            );
+        };
+
+        const handleResize = () => rebuildScene();
+        const handleMotionChange = () => rebuildScene();
+
+        rebuildScene();
         window.addEventListener('resize', handleResize);
+        if (mediaQuery.addEventListener) {
+            mediaQuery.addEventListener('change', handleMotionChange);
+        } else {
+            mediaQuery.addListener(handleMotionChange);
+        }
 
-        // Initialize particles
-        particlesRef.current = Array.from({ length: maxParticles }, () => createParticle(canvas));
+        let lastFrameTime = 0;
 
-        const animate = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const animate = (timestamp = 0) => {
+            animationRef.current = requestAnimationFrame(animate);
 
-            particlesRef.current.forEach((p, i) => {
-                p.x += p.speedX;
-                p.y += p.speedY;
-                p.pulse += p.pulseSpeed;
+            if (document.hidden) return;
+            if (timestamp - lastFrameTime < sceneConfig.frameTime) return;
 
-                const pulseSize = p.size + Math.sin(p.pulse) * 0.5;
-                const pulseOpacity = p.opacity + Math.sin(p.pulse) * 0.1;
+            const delta = lastFrameTime ? (timestamp - lastFrameTime) / 16.67 : 1;
+            lastFrameTime = timestamp;
 
-                // Draw glow
-                const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, pulseSize * 4);
+            ctx.clearRect(0, 0, viewportRef.current.width, viewportRef.current.height);
 
-                if (p.hue === 160) {
-                    // Green/teal magic
-                    gradient.addColorStop(0, `hsla(${p.hue}, 90%, 65%, ${pulseOpacity * 0.6})`);
-                    gradient.addColorStop(0.5, `hsla(${p.hue}, 80%, 55%, ${pulseOpacity * 0.2})`);
-                    gradient.addColorStop(1, `hsla(${p.hue}, 70%, 50%, 0)`);
-                } else {
-                    // Purple magic
-                    gradient.addColorStop(0, `hsla(${p.hue}, 80%, 70%, ${pulseOpacity * 0.5})`);
-                    gradient.addColorStop(0.5, `hsla(${p.hue}, 70%, 60%, ${pulseOpacity * 0.15})`);
-                    gradient.addColorStop(1, `hsla(${p.hue}, 60%, 50%, 0)`);
-                }
+            particlesRef.current.forEach((particle, index) => {
+                particle.x += particle.speedX * delta;
+                particle.y += particle.speedY * delta;
+                particle.pulse += particle.pulseSpeed;
+
+                const pulseSize = particle.size + Math.sin(particle.pulse) * 0.35;
+                const pulseOpacity = particle.opacity + Math.sin(particle.pulse) * 0.06;
+                const outerColor = particle.hue === 160
+                    ? `hsla(${particle.hue}, 85%, 62%, ${pulseOpacity * 0.2})`
+                    : `hsla(${particle.hue}, 72%, 66%, ${pulseOpacity * 0.18})`;
+                const coreColor = particle.hue === 160
+                    ? `hsla(${particle.hue}, 100%, 82%, ${pulseOpacity})`
+                    : `hsla(${particle.hue}, 92%, 84%, ${pulseOpacity})`;
 
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, pulseSize * 4, 0, Math.PI * 2);
-                ctx.fillStyle = gradient;
+                ctx.arc(particle.x, particle.y, pulseSize * 2.8, 0, Math.PI * 2);
+                ctx.fillStyle = outerColor;
                 ctx.fill();
 
-                // Draw core
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, pulseSize, 0, Math.PI * 2);
-                ctx.fillStyle = p.hue === 160
-                    ? `hsla(${p.hue}, 100%, 80%, ${pulseOpacity})`
-                    : `hsla(${p.hue}, 100%, 85%, ${pulseOpacity})`;
+                ctx.arc(particle.x, particle.y, pulseSize, 0, Math.PI * 2);
+                ctx.fillStyle = coreColor;
                 ctx.fill();
 
-                // Reset if out of bounds
-                if (p.y < -20 || p.x < -20 || p.x > canvas.width + 20) {
-                    particlesRef.current[i] = createParticle(canvas);
+                if (
+                    particle.y < -20
+                    || particle.x < -20
+                    || particle.x > viewportRef.current.width + 20
+                ) {
+                    particlesRef.current[index] = createParticle(viewportRef.current, sceneConfig.motionScale);
                 }
             });
-
-            animationRef.current = requestAnimationFrame(animate);
         };
 
         animate();
 
         return () => {
             window.removeEventListener('resize', handleResize);
+            if (mediaQuery.removeEventListener) {
+                mediaQuery.removeEventListener('change', handleMotionChange);
+            } else {
+                mediaQuery.removeListener(handleMotionChange);
+            }
             if (animationRef.current) {
                 cancelAnimationFrame(animationRef.current);
             }

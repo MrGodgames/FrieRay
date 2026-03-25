@@ -25,6 +25,7 @@
     width: 200px;
     height: 200px;
     transition: opacity 0.6s ease;
+    will-change: transform, opacity;
 }
 
 .mc-ring {
@@ -38,54 +39,54 @@
 /* ── Idle: subtle, paused ── */
 .mc-ring-1 {
     opacity: 0.3;
-    animation: spin 20s linear infinite;
+    animation: spin 28s linear infinite;
 }
 
 .mc-ring-2 {
     opacity: 0.2;
-    animation: spin 25s linear infinite reverse;
+    animation: spin 34s linear infinite reverse;
 }
 
 .mc-ring-3 {
     opacity: 0.2;
-    animation: spin 30s linear infinite;
+    animation: spin 40s linear infinite;
 }
 
 /* ── Spinning (connecting): bright, fast ── */
 .magic-circles.spinning .mc-ring-1 {
     opacity: 0.9;
-    animation: spin 3s linear infinite;
+    animation: spin 4.2s linear infinite;
     filter: drop-shadow(0 0 4px rgba(139, 106, 255, 0.5));
 }
 
 .magic-circles.spinning .mc-ring-2 {
     opacity: 0.8;
-    animation: spin 4s linear infinite reverse;
+    animation: spin 5s linear infinite reverse;
     filter: drop-shadow(0 0 4px rgba(45, 232, 160, 0.4));
 }
 
 .magic-circles.spinning .mc-ring-3 {
     opacity: 0.7;
-    animation: spin 5s linear infinite;
+    animation: spin 5.8s linear infinite;
     filter: drop-shadow(0 0 3px rgba(139, 106, 255, 0.4));
 }
 
 /* ── Active (connected): medium, glowing ── */
 .magic-circles.active .mc-ring-1 {
     opacity: 0.5;
-    animation: spin 10s linear infinite;
+    animation: spin 13s linear infinite;
     filter: drop-shadow(0 0 6px rgba(45, 232, 160, 0.3));
 }
 
 .magic-circles.active .mc-ring-2 {
     opacity: 0.4;
-    animation: spin 14s linear infinite reverse;
+    animation: spin 17s linear infinite reverse;
     filter: drop-shadow(0 0 5px rgba(45, 232, 160, 0.25));
 }
 
 .magic-circles.active .mc-ring-3 {
     opacity: 0.35;
-    animation: spin 18s linear infinite;
+    animation: spin 21s linear infinite;
     filter: drop-shadow(0 0 4px rgba(45, 232, 160, 0.2));
 }
 
@@ -96,16 +97,22 @@
     border-radius: 50%;
     border: 1.5px solid var(--border);
     background: var(--glass-bg);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     cursor: pointer;
     position: relative;
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:
+        transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.3s ease,
+        color 0.3s ease,
+        box-shadow 0.45s ease,
+        background-color 0.3s ease;
     color: var(--text-muted);
+    will-change: transform, box-shadow;
 }
 
 .connect-btn.classic {
@@ -113,8 +120,8 @@
     height: 92px;
     border-radius: 28px;
     background: var(--surface);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     box-shadow: var(--shadow-sm);
 }
 
@@ -122,9 +129,9 @@
     border-color: var(--primary-400);
     color: var(--primary-300);
     box-shadow:
-        0 0 20px rgba(139, 106, 255, 0.15),
-        inset 0 0 15px rgba(139, 106, 255, 0.05);
-    transform: scale(1.06);
+        0 0 14px rgba(139, 106, 255, 0.12),
+        inset 0 0 12px rgba(139, 106, 255, 0.04);
+    transform: scale(1.03);
 }
 
 .connect-btn.classic:hover:not(:disabled) {
@@ -138,10 +145,10 @@
     color: var(--accent-400);
     background: rgba(45, 232, 160, 0.04);
     box-shadow:
-        0 0 20px rgba(45, 232, 160, 0.15),
-        0 0 40px rgba(45, 232, 160, 0.06),
+        0 0 16px rgba(45, 232, 160, 0.14),
+        0 0 28px rgba(45, 232, 160, 0.05),
         inset 0 0 12px rgba(45, 232, 160, 0.04);
-    animation: pulse-connected 4s ease-in-out infinite;
+    animation: pulse-connected 5.5s ease-in-out infinite;
 }
 
 .connect-btn.connected:hover:not(:disabled) {
@@ -157,7 +164,7 @@
     color: var(--primary-400);
     cursor: wait;
     box-shadow:
-        0 0 25px rgba(139, 106, 255, 0.2),
+        0 0 18px rgba(139, 106, 255, 0.18),
         inset 0 0 15px rgba(139, 106, 255, 0.06);
 }
 
@@ -174,7 +181,7 @@
     font-size: 1.4rem;
     color: var(--primary-400);
     text-shadow: 0 0 12px var(--primary-400);
-    transition: all var(--transition-normal);
+    transition: color var(--transition-normal), text-shadow var(--transition-normal), transform var(--transition-normal);
 }
 
 .connect-btn.classic .connect-rune {
@@ -183,8 +190,8 @@
 }
 
 .connect-btn:hover .connect-rune {
-    text-shadow: 0 0 18px var(--accent-400), 0 0 35px var(--primary-400);
-    transform: scale(1.1);
+    text-shadow: 0 0 14px var(--accent-400), 0 0 24px var(--primary-400);
+    transform: scale(1.06);
 }
 
 .connect-btn.classic:hover .connect-rune {

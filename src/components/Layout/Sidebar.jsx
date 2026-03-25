@@ -84,9 +84,7 @@ export default function Sidebar() {
                             `sidebar-nav-item ${isActive ? 'active' : ''}`
                         }
                     >
-                        {item.path === location.pathname && (
-                            <span className="sidebar-nav-indicator" />
-                        )}
+                        <span className="sidebar-nav-indicator" />
                         <span className="sidebar-nav-icon">{item.icon}</span>
                         <span className="sidebar-nav-label">{item.label}</span>
                         {!isClassic && item.path === location.pathname && (
@@ -122,7 +120,7 @@ export default function Sidebar() {
                     )}
                     <span>{theme === 'dark' ? 'День' : 'Ночь'}</span>
                 </button>
-                <div className="sidebar-version">v0.2.0</div>
+                <div className="sidebar-version">v0.2.1</div>
             </div>
         </aside>
     );

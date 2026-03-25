@@ -184,11 +184,6 @@ export default function Dashboard() {
 
     return (
         <div className="dashboard">
-            <div className="page-header">
-                <h1><span className="text-gradient">Панель Управления</span></h1>
-                <p>Быстрый доступ к подключению и режиму TUN</p>
-            </div>
-
             {error && (
                 <div className="dashboard-error animate-fade-in">
                     <span>⚠️ {error}</span>

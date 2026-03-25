@@ -43,6 +43,20 @@
     }
 }
 
+@keyframes backgroundFloat {
+
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0);
+        opacity: 0.78;
+    }
+
+    50% {
+        transform: translate3d(0, -10px, 0);
+        opacity: 0.92;
+    }
+}
+
 @keyframes pulse-glow {
 
     0%,
@@ -257,6 +271,17 @@
 }
 
 /* ---- Animation Classes ---- */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
 
 .animate-float {
     animation: float 4s ease-in-out infinite;
