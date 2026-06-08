@@ -170,7 +170,7 @@ export default function Servers() {
 
     const handleAddLink = async () => {
         if (!subUrl.trim()) return;
-        if (subUrl.startsWith('vless://') || subUrl.startsWith('vmess://') || subUrl.startsWith('trojan://')) {
+        if (subUrl.startsWith('vless://') || subUrl.startsWith('vmess://') || subUrl.startsWith('trojan://') || subUrl.startsWith('ss://')) {
             try {
                 const server = await api.parseLink(subUrl.trim());
                 if (server) {

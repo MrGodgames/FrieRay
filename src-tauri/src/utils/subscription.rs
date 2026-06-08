@@ -5,19 +5,25 @@ use base64::{
     Engine,
 };
 use serde_json::Value;
+use url::Url;
 use uuid::Uuid;
 
 /// Fetch a subscription URL and return parsed servers
 pub async fn fetch_subscription(sub: &Subscription) -> Result<Vec<Server>, String> {
+    validate_subscription_url(&sub.url)?;
+
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(20))
         .user_agent("v2rayN/6.0")
-        .danger_accept_invalid_certs(true)
         .redirect(reqwest::redirect::Policy::limited(5))
         .build()
         .map_err(|e| format!("HTTP client error: {}", e))?;
 
-    log::info!("Fetching subscription: {} ({})", sub.name, sub.url);
+    log::info!(
+        "Fetching subscription: {} ({})",
+        sub.name,
+        safe_subscription_url_label(&sub.url)
+    );
 
     let response = client
         .get(&sub.url)
@@ -45,6 +51,33 @@ pub async fn fetch_subscription(sub: &Subscription) -> Result<Vec<Server>, Strin
     log::info!("Parsed {} servers from subscription", servers.len());
 
     Ok(servers)
+}
+
+pub fn validate_subscription_url(raw_url: &str) -> Result<(), String> {
+    let parsed = Url::parse(raw_url.trim()).map_err(|e| format!("Некорректный URL: {}", e))?;
+    match parsed.scheme() {
+        "https" => Ok(()),
+        "http" if is_local_subscription_host(&parsed) => Ok(()),
+        "http" => Err("URL подписки должен использовать HTTPS".into()),
+        scheme => Err(format!("Неподдерживаемая схема URL подписки: {}", scheme)),
+    }
+}
+
+fn is_local_subscription_host(url: &Url) -> bool {
+    matches!(
+        url.host_str(),
+        Some("localhost") | Some("127.0.0.1") | Some("::1")
+    )
+}
+
+fn safe_subscription_url_label(raw_url: &str) -> String {
+    Url::parse(raw_url)
+        .ok()
+        .and_then(|url| {
+            url.host_str()
+                .map(|host| format!("{}://{}", url.scheme(), host))
+        })
+        .unwrap_or_else(|| "<invalid-url>".into())
 }
 
 /// Parse subscription content (base64 encoded or plain text)
@@ -304,6 +337,12 @@ fn parse_json_outbound(
                             "auto".into()
                         }
                     }),
+                alter_id: value_as_u16(user.and_then(|value| value.get("alterId")))
+                    .or_else(|| value_as_u16(user.and_then(|value| value.get("alter_id"))))
+                    .or_else(|| value_as_u16(user.and_then(|value| value.get("aid"))))
+                    .or_else(|| value_as_u16(outbound.get("alterId")))
+                    .or_else(|| value_as_u16(outbound.get("alter_id")))
+                    .or_else(|| value_as_u16(outbound.get("aid"))),
                 flow: value_as_string(user.and_then(|value| value.get("flow")))
                     .or_else(|| value_as_string(outbound.get("flow"))),
                 network,
@@ -370,6 +409,7 @@ fn parse_json_outbound(
                     .or_else(|| value_as_string(outbound.get("password")))
                     .unwrap_or_default(),
                 encryption: "none".into(),
+                alter_id: None,
                 flow: value_as_string(server_entry.and_then(|value| value.get("flow")))
                     .or_else(|| value_as_string(outbound.get("flow"))),
                 network,
@@ -424,6 +464,7 @@ fn parse_json_outbound(
                 encryption: value_as_string(server_entry.and_then(|value| value.get("method")))
                     .or_else(|| value_as_string(outbound.get("method")))
                     .unwrap_or_else(|| "aes-256-gcm".into()),
+                alter_id: None,
                 flow: None,
                 network,
                 security,
@@ -610,6 +651,10 @@ fn parse_vmess_url(link: &str) -> Result<Server, String> {
         protocol: Protocol::Vmess,
         uuid: json["id"].as_str().unwrap_or("").to_string(),
         encryption: json["scy"].as_str().unwrap_or("auto").to_string(),
+        alter_id: json["aid"]
+            .as_str()
+            .and_then(|value| value.parse().ok())
+            .or_else(|| json["aid"].as_u64().map(|value| value as u16)),
         flow: None,
         network: json["net"].as_str().unwrap_or("tcp").to_string(),
         security: json["tls"].as_str().unwrap_or("none").to_string(),
@@ -672,6 +717,7 @@ fn parse_trojan_url(link: &str) -> Result<Server, String> {
         protocol: Protocol::Trojan,
         uuid: password.to_string(),
         encryption: "none".into(),
+        alter_id: None,
         flow: None,
         network: params.get("type").cloned().unwrap_or_else(|| "tcp".into()),
         security: params
@@ -742,6 +788,7 @@ fn parse_ss_url(link: &str) -> Result<Server, String> {
         protocol: Protocol::Shadowsocks,
         uuid: password.to_string(),
         encryption: method.to_string(),
+        alter_id: None,
         flow: None,
         network: "tcp".into(),
         security: "none".into(),
@@ -852,5 +899,17 @@ mod tests {
         assert_eq!(servers[0].public_key.as_deref(), Some("pubkey"));
         assert_eq!(servers[0].short_id.as_deref(), Some("abcd"));
         assert_eq!(servers[0].subscription_id.as_deref(), Some("sub-1"));
+    }
+
+    #[test]
+    fn subscription_url_requires_https() {
+        assert!(validate_subscription_url("https://example.com/sub").is_ok());
+        assert!(validate_subscription_url("http://example.com/sub").is_err());
+    }
+
+    #[test]
+    fn subscription_url_allows_local_http_for_development() {
+        assert!(validate_subscription_url("http://localhost:8080/sub").is_ok());
+        assert!(validate_subscription_url("http://127.0.0.1:8080/sub").is_ok());
     }
 }

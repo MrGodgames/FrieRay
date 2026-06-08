@@ -1,4 +1,4 @@
-use crate::models::server::Server;
+use crate::models::server::{Protocol, Server};
 use crate::models::settings::AppSettings;
 use crate::models::xray_config::*;
 use serde_json::json;
@@ -152,8 +152,12 @@ pub fn generate_xray_config(server: &Server, settings: &AppSettings, api_port: u
 }
 
 fn build_proxy_outbound(server: &Server) -> Outbound {
-    // TODO: add vmess, trojan, ss builders
-    build_vless_outbound(server)
+    match server.protocol {
+        Protocol::Vless => build_vless_outbound(server),
+        Protocol::Vmess => build_vmess_outbound(server),
+        Protocol::Trojan => build_trojan_outbound(server),
+        Protocol::Shadowsocks => build_shadowsocks_outbound(server),
+    }
 }
 
 fn build_vless_outbound(server: &Server) -> Outbound {
@@ -167,8 +171,79 @@ fn build_vless_outbound(server: &Server) -> Outbound {
         }]
     });
 
-    // Build stream settings
-    let tls_settings = if server.security == "tls" {
+    Outbound {
+        tag: "proxy".into(),
+        protocol: "vless".into(),
+        settings: Some(json!({
+            "vnext": [vnext]
+        })),
+        stream_settings: Some(build_stream_settings(server)),
+    }
+}
+
+fn build_vmess_outbound(server: &Server) -> Outbound {
+    let vnext = json!({
+        "address": server.address,
+        "port": server.port,
+        "users": [{
+            "id": server.uuid,
+            "alterId": server.alter_id.unwrap_or(0),
+            "security": normalize_vmess_security(&server.encryption)
+        }]
+    });
+
+    Outbound {
+        tag: "proxy".into(),
+        protocol: "vmess".into(),
+        settings: Some(json!({
+            "vnext": [vnext]
+        })),
+        stream_settings: Some(build_stream_settings(server)),
+    }
+}
+
+fn build_trojan_outbound(server: &Server) -> Outbound {
+    let mut trojan_server = json!({
+        "address": server.address,
+        "port": server.port,
+        "password": server.uuid,
+    });
+
+    if let Some(flow) = server.flow.as_deref().filter(|value| !value.is_empty()) {
+        trojan_server["flow"] = json!(flow);
+    }
+
+    Outbound {
+        tag: "proxy".into(),
+        protocol: "trojan".into(),
+        settings: Some(json!({
+            "servers": [trojan_server]
+        })),
+        stream_settings: Some(build_stream_settings(server)),
+    }
+}
+
+fn build_shadowsocks_outbound(server: &Server) -> Outbound {
+    Outbound {
+        tag: "proxy".into(),
+        protocol: "shadowsocks".into(),
+        settings: Some(json!({
+            "servers": [{
+                "address": server.address,
+                "port": server.port,
+                "method": server.encryption,
+                "password": server.uuid
+            }]
+        })),
+        stream_settings: None,
+    }
+}
+
+fn build_stream_settings(server: &Server) -> StreamSettings {
+    let network = normalize_network(&server.network);
+    let security = normalize_security(&server.security);
+
+    let tls_settings = if security == "tls" {
         Some(TlsSettings {
             server_name: server.sni.clone().unwrap_or_else(|| server.address.clone()),
             fingerprint: server.fingerprint.clone(),
@@ -178,7 +253,7 @@ fn build_vless_outbound(server: &Server) -> Outbound {
         None
     };
 
-    let reality_settings = if server.security == "reality" {
+    let reality_settings = if security == "reality" {
         Some(RealitySettings {
             server_name: server.sni.clone().unwrap_or_default(),
             fingerprint: server
@@ -193,7 +268,7 @@ fn build_vless_outbound(server: &Server) -> Outbound {
         None
     };
 
-    let ws_settings = if server.network == "ws" {
+    let ws_settings = if network == "ws" {
         Some(WsSettings {
             path: server.path.clone().unwrap_or_else(|| "/".into()),
             headers: server.host.as_ref().map(|h| json!({ "Host": h })),
@@ -202,7 +277,7 @@ fn build_vless_outbound(server: &Server) -> Outbound {
         None
     };
 
-    let grpc_settings = if server.network == "grpc" {
+    let grpc_settings = if network == "grpc" {
         Some(GrpcSettings {
             service_name: server.service_name.clone().unwrap_or_default(),
             multi_mode: false,
@@ -211,7 +286,7 @@ fn build_vless_outbound(server: &Server) -> Outbound {
         None
     };
 
-    let xhttp_settings = if server.network == "xhttp" || server.network == "splithttp" {
+    let xhttp_settings = if network == "xhttp" {
         Some(XhttpSettings {
             path: server.path.clone().unwrap_or_else(|| "/".into()),
             host: server.host.clone(),
@@ -221,22 +296,39 @@ fn build_vless_outbound(server: &Server) -> Outbound {
         None
     };
 
-    Outbound {
-        tag: "proxy".into(),
-        protocol: "vless".into(),
-        settings: Some(json!({
-            "vnext": [vnext]
-        })),
-        stream_settings: Some(StreamSettings {
-            network: server.network.clone(),
-            security: server.security.clone(),
-            tls_settings,
-            reality_settings,
-            ws_settings,
-            grpc_settings,
-            xhttp_settings,
-            tcp_settings: None,
-        }),
+    StreamSettings {
+        network,
+        security,
+        tls_settings,
+        reality_settings,
+        ws_settings,
+        grpc_settings,
+        xhttp_settings,
+        tcp_settings: None,
+    }
+}
+
+fn normalize_security(security: &str) -> String {
+    let security = security.trim();
+    if security.is_empty() {
+        "none".into()
+    } else {
+        security.into()
+    }
+}
+
+fn normalize_network(network: &str) -> String {
+    match network.trim() {
+        "splithttp" => "xhttp".into(),
+        "" => "tcp".into(),
+        value => value.into(),
+    }
+}
+
+fn normalize_vmess_security(security: &str) -> String {
+    match security.trim() {
+        "" | "none" => "auto".into(),
+        value => value.into(),
     }
 }
 
@@ -257,5 +349,76 @@ fn build_block_outbound() -> Outbound {
             "response": { "type": "http" }
         })),
         stream_settings: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_server(protocol: Protocol) -> Server {
+        Server {
+            id: "server-id".into(),
+            name: "test".into(),
+            address: "example.com".into(),
+            port: 443,
+            protocol,
+            uuid: "secret-or-id".into(),
+            encryption: "auto".into(),
+            alter_id: Some(0),
+            flow: None,
+            network: "ws".into(),
+            security: "tls".into(),
+            sni: Some("sni.example.com".into()),
+            fingerprint: Some("chrome".into()),
+            public_key: None,
+            short_id: None,
+            path: Some("/ws".into()),
+            host: Some("host.example.com".into()),
+            service_name: None,
+            country: None,
+            ping: None,
+            speed_mbps: None,
+            reachable: None,
+            speed_reachable: None,
+            ping_checking: false,
+            speed_checking: false,
+            subscription_id: None,
+        }
+    }
+
+    #[test]
+    fn vmess_outbound_uses_vmess_protocol_and_alter_id() {
+        let outbound = build_proxy_outbound(&test_server(Protocol::Vmess));
+        let settings = outbound.settings.unwrap();
+
+        assert_eq!(outbound.protocol, "vmess");
+        assert_eq!(settings["vnext"][0]["users"][0]["alterId"], 0);
+        assert_eq!(settings["vnext"][0]["users"][0]["security"], "auto");
+        assert_eq!(outbound.stream_settings.unwrap().network, "ws");
+    }
+
+    #[test]
+    fn trojan_outbound_uses_password_settings() {
+        let outbound = build_proxy_outbound(&test_server(Protocol::Trojan));
+        let settings = outbound.settings.unwrap();
+
+        assert_eq!(outbound.protocol, "trojan");
+        assert_eq!(settings["servers"][0]["password"], "secret-or-id");
+        assert_eq!(outbound.stream_settings.unwrap().security, "tls");
+    }
+
+    #[test]
+    fn shadowsocks_outbound_uses_method_and_password() {
+        let mut server = test_server(Protocol::Shadowsocks);
+        server.encryption = "aes-256-gcm".into();
+
+        let outbound = build_proxy_outbound(&server);
+        let settings = outbound.settings.unwrap();
+
+        assert_eq!(outbound.protocol, "shadowsocks");
+        assert_eq!(settings["servers"][0]["method"], "aes-256-gcm");
+        assert_eq!(settings["servers"][0]["password"], "secret-or-id");
+        assert!(outbound.stream_settings.is_none());
     }
 }

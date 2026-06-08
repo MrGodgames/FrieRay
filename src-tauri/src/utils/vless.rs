@@ -55,6 +55,7 @@ pub fn parse_vless_url(link: &str) -> Result<Server, String> {
             .get("encryption")
             .cloned()
             .unwrap_or_else(|| "none".into()),
+        alter_id: None,
         flow: params.get("flow").cloned(),
         network: params.get("type").cloned().unwrap_or_else(|| "tcp".into()),
         security: params

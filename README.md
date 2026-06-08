@@ -1,90 +1,105 @@
 # FrieRay
 
-## English
+![Version](https://img.shields.io/badge/version-0.2.2-blue)
+![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
+![Tauri](https://img.shields.io/badge/Tauri-2.x-24C8DB)
+![React](https://img.shields.io/badge/React-19-61DAFB)
+![Rust](https://img.shields.io/badge/Rust-2021-orange)
 
 FrieRay is a desktop V2Ray/Xray client for macOS built with Tauri 2, React, and Rust.
 
-It focuses on a clean desktop workflow for everyday use: subscription import, quick server selection, full-traffic TUN mode, built-in diagnostics, menu bar control, and a switchable interface style.
+The app focuses on a practical daily workflow: importing subscriptions, selecting servers, checking ping and speed, connecting through Xray, using system proxy or full-traffic TUN mode, and controlling the connection from the macOS menu bar.
 
-### Features
+## Highlights
 
-- VLESS / VMess / Trojan / Shadowsocks subscription import
-- Server selection from a unified list
-- macOS menu bar / tray icon with popup
-- Quick connect / disconnect from the tray
-- Quick connect to the best server based on measured speed
-- Progress feedback while the tray selects and tests the best server
-- Launch at login and background tray mode on macOS
-- Full-traffic TUN mode on macOS
+- VLESS, VMess, Trojan, and Shadowsocks import
+- Plain text, base64, Xray/V2Ray JSON, and partial sing-box-style JSON subscription parsing
+- Per-server ping scan with parallel measurement
+- Per-server speed test through isolated temporary Xray instances
+- Best-server quick connect from the tray popup
+- macOS menu bar workflow with connect, disconnect, and auto-select actions
 - System proxy mode
-- Per-server ping scan
-- Per-server speed scan
-- Live logs and connection diagnostics
-- Light and dark themes
-- Two interface styles: fantasy and classic
+- Full-traffic macOS TUN mode through `tun2socks`
+- Launch at login and background tray mode
+- Live logs, traffic stats, and connection diagnostics
+- Light/dark themes and fantasy/classic visual modes
 
-### Supported Input Formats
+## Release
 
-FrieRay currently accepts several common subscription and config formats on import:
+Latest prepared version: `v0.2.2`
 
-- plain-text subscription lists with `vless://`, `vmess://`, `trojan://`, `ss://`
-- the same lists when they are base64-encoded
-- Xray / V2Ray JSON configs with supported `outbounds`
-- some sing-box-style JSON outbound definitions using fields such as `type`, `server`, `server_port`, `uuid`, `tls`, and `transport`
+Prebuilt macOS builds are published through [GitHub Releases](https://github.com/MrGodgames/FrieRay/releases).
 
-Current import compatibility is focused on these outbound protocols:
+Expected macOS artifact names:
 
-- VLESS
-- VMess
-- Trojan
-- Shadowsocks
+```text
+FrieRay_0.2.2_aarch64.dmg
+FrieRay.app
+```
 
-Important:
+## Supported Import Formats
 
-- import support does not automatically mean every protocol/path is equally tested in the full connect flow
-- the current desktop workflow is primarily tested around Xray-based VLESS setups
-- formats such as Clash YAML, TUIC, Hysteria, WireGuard, or other unsupported protocol families are not guaranteed to work yet
+FrieRay currently supports:
 
-### Downloads
+- `vless://`
+- `vmess://`
+- `trojan://`
+- `ss://`
+- base64-encoded subscription lists containing those links
+- Xray/V2Ray JSON configs with supported `outbounds`
+- selected sing-box-style JSON outbound fields such as `type`, `server`, `server_port`, `uuid`, `password`, `tls`, and `transport`
 
-Prebuilt macOS builds are available in GitHub Releases.
+Unsupported or not guaranteed yet:
 
-Release file:
+- Clash YAML
+- TUIC
+- Hysteria
+- WireGuard
+- mixed or provider-specific formats outside the supported outbound fields
 
-- `FrieRay_0.2.1_aarch64.dmg`
+## Current Status
 
-### Current Status
-
-Implemented and available in the app:
+Stable enough for personal macOS use:
 
 - subscription management
-- connect / disconnect flow
-- Xray launch and shutdown
-- TUN helper installation on macOS
-- automatic TUN and proxy cleanup on startup and exit
-- macOS tray workflow with popup and quick actions
-- best-server quick connect from the tray
-- launch at login / background mode for macOS
-- dashboard quick TUN toggle
-- per-server ping and speed checks
-- classic mode without fantasy/anime visuals
+- server list and active server selection
+- Xray start/stop lifecycle
+- system proxy mode
+- TUN helper install/start/stop flow
+- startup and exit cleanup for TUN routes, Xray, and proxy settings
+- tray popup workflow
+- ping and speed scans
+- best-server selection
 
-Currently still closer to prototype/UI status:
+Still experimental:
 
-- Split Tunnel
-- Routing editor
+- Split Tunnel UI
+- routing editor
+- advanced protocol edge cases
+- signed update and dependency verification workflow
 
-### Technology
+## Security Notes
 
-- Tauri 2
-- React 19
-- Vite 7
-- Rust
-- Xray-core
+FrieRay is a local VPN/proxy client and handles sensitive data such as subscription URLs, server UUIDs, passwords, and generated Xray configs.
 
-### Development
+Current protections:
 
-Requirements:
+- HTTPS is required for remote subscription URLs
+- local app data is written with private Unix permissions where supported
+- generated Xray configs and temporary speed-test configs are written as private files
+- Tauri shell plugin permissions are not enabled for the frontend
+- a Content Security Policy is configured for the Tauri webview
+- subscription URLs are not logged with full paths or tokens
+
+Known hardening still planned:
+
+- store server secrets in macOS Keychain instead of plaintext JSON
+- verify downloaded `tun2socks` binaries with pinned checksums
+- improve the privileged TUN helper lifecycle and add a clean uninstall command
+- reduce CSP inline-style requirements
+- add automated dependency audit checks
+
+## Requirements
 
 - macOS
 - Node.js 20+
@@ -92,164 +107,91 @@ Requirements:
 - Rust toolchain
 - Xcode Command Line Tools
 
-Run locally:
+## Development
+
+Install dependencies:
 
 ```bash
 npm install
+```
+
+Run the app in development mode:
+
+```bash
 npm run tauri dev
 ```
 
-Build desktop app:
+Build the frontend only:
+
+```bash
+npm run build
+```
+
+Build the desktop app:
 
 ```bash
 npm run tauri build
 ```
 
-Build artifacts:
+Run Rust checks:
+
+```bash
+cd src-tauri
+cargo test
+cargo check
+```
+
+## Build Artifacts
+
+Tauri writes macOS artifacts to:
 
 ```text
 src-tauri/target/release/bundle/macos/
 src-tauri/target/release/bundle/dmg/
 ```
 
-### TUN Mode
+## TUN Mode
 
-When TUN mode is enabled for the first time, FrieRay installs a small privileged helper on macOS to manage routes.
+TUN mode requires a small privileged helper on macOS to configure routes and run `tun2socks`.
 
-macOS may request an administrator password once during this step. After installation, the helper is reused.
+The first enable may request an administrator password. After installation, the helper is reused for future TUN start/stop operations.
 
-### Notes
+## Repository Layout
 
-- `xray` is bundled from `src-tauri/binaries/`
-- runtime settings are stored outside the repository in the system application data directory
-- on exit, the app attempts to clean up TUN routes, Xray state, and system proxy settings automatically
+```text
+src/                 React frontend
+src-tauri/src/       Rust backend and Tauri commands
+src-tauri/binaries/  bundled Xray binary
+src-tauri/icons/     app icons
+public/              static frontend assets
+```
 
 ## Русский
 
-FrieRay — это десктопный V2Ray/Xray-клиент для macOS, написанный на Tauri 2, React и Rust.
+FrieRay — десктопный V2Ray/Xray-клиент для macOS на Tauri 2, React и Rust.
 
-Приложение рассчитано на повседневное использование: импорт подписок, быстрый выбор сервера, TUN-режим для всего трафика, встроенная диагностика, управление через menu bar и переключаемый стиль интерфейса.
+Главный сценарий: импорт подписок, выбор сервера, проверка ping и скорости, подключение через Xray, системный прокси или полный TUN-режим, а также управление подключением из menu bar.
 
 ### Возможности
 
-- импорт подписок VLESS / VMess / Trojan / Shadowsocks
-- выбор сервера из общего списка
-- иконка в menu bar / tray с popup-окном
-- быстрое подключение и отключение из трея
-- быстрое подключение к лучшему серверу по измеренной скорости
-- индикация прогресса, пока tray подбирает и тестирует лучший сервер
-- запуск при входе в систему и фоновый режим на macOS
-- TUN-режим для всего трафика в macOS
+- импорт VLESS, VMess, Trojan и Shadowsocks
+- поддержка обычных и base64-подписок
+- частичная поддержка Xray/V2Ray JSON и sing-box-style JSON
+- массовая проверка ping
+- массовый speed test через временные isolated Xray-инстансы
+- быстрый выбор лучшего сервера из tray popup
 - режим системного прокси
-- массовая проверка ping по серверам
-- массовая проверка скорости по серверам
-- логи и диагностика подключения
-- светлая и тёмная темы
-- два стиля интерфейса: fantasy и classic
+- полный TUN-режим на macOS
+- автозапуск при входе в систему
+- логи, статистика трафика и диагностика
+- светлая/тёмная тема и fantasy/classic режимы интерфейса
 
-### Поддерживаемые форматы импорта
+### Безопасность
 
-Сейчас FrieRay умеет принимать несколько распространённых форматов подписок и конфигов:
+В версии `0.2.2` усилены базовые настройки безопасности: HTTPS для удалённых подписок, приватные права на локальные конфиги, CSP для webview, удалены shell-permissions из Tauri frontend, а URL подписок больше не логируются целиком.
 
-- обычные текстовые подписки со строками `vless://`, `vmess://`, `trojan://`, `ss://`
-- те же списки, если они закодированы в base64
-- JSON-конфиги Xray / V2Ray с поддерживаемыми `outbounds`
-- часть JSON-форматов в стиле sing-box, где используются поля `type`, `server`, `server_port`, `uuid`, `tls`, `transport`
+Следующие задачи по безопасности: macOS Keychain для секретов, checksum для `tun2socks`, улучшенный uninstall для TUN helper и dependency audit в CI.
 
-Текущий импорт ориентирован на такие outbound-протоколы:
-
-- VLESS
-- VMess
-- Trojan
-- Shadowsocks
-
-Важно:
-
-- поддержка импорта не означает, что каждый протокол и каждый вариант транспорта одинаково хорошо проверен в полном сценарии подключения
-- основной рабочий сценарий приложения сейчас в первую очередь протестирован на Xray-based VLESS-конфигах
-- форматы вроде Clash YAML, TUIC, Hysteria, WireGuard и другие неподдерживаемые семейства протоколов пока не гарантируются
-
-### Загрузка
-
-Готовые сборки для macOS доступны во вкладке GitHub Releases.
-
-Файл для скачивания:
-
-- `FrieRay_0.2.1_aarch64.dmg`
-
-### Текущий статус
-
-Уже реализовано и доступно в приложении:
-
-- управление подписками
-- подключение и отключение
-- запуск и остановка Xray
-- установка TUN helper на macOS
-- автоматическая очистка TUN и прокси при старте и выходе
-- tray workflow для macOS с popup и быстрыми действиями
-- быстрое подключение к лучшему серверу из трея
-- запуск при входе в систему и работа в фоне на macOS
-- быстрый переключатель TUN на главной странице
-- проверка ping и скорости для серверов
-- классический режим без fantasy/anime-оформления
-
-Пока ещё ближе к прототипу или UI-слою:
-
-- Split Tunnel
-- редактор маршрутизации
-
-### Технологии
-
-- Tauri 2
-- React 19
-- Vite 7
-- Rust
-- Xray-core
-
-### Разработка
-
-Требования:
-
-- macOS
-- Node.js 20+
-- npm
-- Rust toolchain
-- Xcode Command Line Tools
-
-Локальный запуск:
-
-```bash
-npm install
-npm run tauri dev
-```
-
-Сборка приложения:
-
-```bash
-npm run tauri build
-```
-
-Артефакты сборки:
-
-```text
-src-tauri/target/release/bundle/macos/
-src-tauri/target/release/bundle/dmg/
-```
-
-### TUN-режим
-
-При первом включении TUN режима FrieRay устанавливает небольшой привилегированный helper для управления маршрутами в macOS.
-
-Во время этой установки macOS может один раз запросить пароль администратора. После установки helper переиспользуется.
-
-### Примечания
-
-- `xray` поставляется вместе с приложением из `src-tauri/binaries/`
-- пользовательские настройки и runtime-данные хранятся вне репозитория, в системной директории приложения
-- при выходе приложение пытается автоматически очистить TUN-маршруты, состояние Xray и системный прокси
-
-## License / Лицензия
+## License
 
 No license file is included yet.
-
-Файл лицензии пока не добавлен.
