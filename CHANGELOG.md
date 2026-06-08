@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.2.3 - Connection Validation Hotfix
+
+Release type: patch
+
+This hotfix prevents the app from reporting a successful connection when Xray starts but the selected server does not actually pass traffic.
+
+### Fixed
+
+- Added a real outbound connectivity probe after Xray startup and before enabling TUN or system proxy.
+- Failed connectivity probes now stop Xray and return a connection error instead of showing a false "connected" state.
+- System proxy setup failures now fail the connection instead of being logged as a warning while the app remains "connected".
+- TUN fallback to system proxy now fails cleanly if both TUN and system proxy setup fail.
+- Startup and speed scans now clean up orphaned temporary Xray speed-test processes.
+
+### Verification
+
+- `cargo test`
+- `cargo check`
+- `npm run build`
+- `npm run tauri build`
+
 ## v0.2.2 - Scan Accuracy and Security Patch
 
 Release type: patch

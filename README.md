@@ -1,6 +1,6 @@
 # FrieRay
 
-![Version](https://img.shields.io/badge/version-0.2.2-blue)
+![Version](https://img.shields.io/badge/version-0.2.3-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Tauri](https://img.shields.io/badge/Tauri-2.x-24C8DB)
 ![React](https://img.shields.io/badge/React-19-61DAFB)
@@ -26,14 +26,14 @@ The app focuses on a practical daily workflow: importing subscriptions, selectin
 
 ## Release
 
-Latest prepared version: `v0.2.2`
+Latest prepared version: `v0.2.3`
 
 Prebuilt macOS builds are published through [GitHub Releases](https://github.com/MrGodgames/FrieRay/releases).
 
 Expected macOS artifact names:
 
 ```text
-FrieRay_0.2.2_aarch64.dmg
+FrieRay_0.2.3_aarch64.dmg
 FrieRay.app
 ```
 
@@ -188,7 +188,7 @@ FrieRay — десктопный V2Ray/Xray-клиент для macOS на Tauri
 
 ### Безопасность
 
-В версии `0.2.2` усилены базовые настройки безопасности: HTTPS для удалённых подписок, приватные права на локальные конфиги, CSP для webview, удалены shell-permissions из Tauri frontend, а URL подписок больше не логируются целиком.
+В версии `0.2.3` усилены базовые настройки безопасности: HTTPS для удалённых подписок, приватные права на локальные конфиги, CSP для webview, удалены shell-permissions из Tauri frontend, а URL подписок больше не логируются целиком.
 
 Следующие задачи по безопасности: macOS Keychain для секретов, checksum для `tun2socks`, улучшенный uninstall для TUN helper и dependency audit в CI.
 

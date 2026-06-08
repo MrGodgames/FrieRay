@@ -2,6 +2,13 @@ use crate::models::server::Server;
 use crate::AppState;
 use tauri::{Emitter, Manager, State};
 
+const CONNECTIVITY_PROBE_TARGETS: &[(&str, &str)] = &[
+    ("Selectel", "https://speedtest.selectel.ru/100MB"),
+    ("Yandex Mirror", "https://mirror.yandex.ru/debian/ls-lR.gz"),
+];
+const CONNECTIVITY_PROBE_BYTES: u64 = 16 * 1024;
+const CONNECTIVITY_PROBE_TIMEOUT_SECS: u64 = 8;
+
 pub async fn connect_best_server_with_app(app: &tauri::AppHandle) -> Result<String, String> {
     let state = app.state::<AppState>();
     let selection = crate::commands::servers::choose_best_server(app, &state).await?;
@@ -107,6 +114,25 @@ pub async fn connect_with_state(server: Server, state: &AppState) -> Result<Stri
         }
     }
 
+    if let Err(e) = verify_local_proxy_connectivity(settings.proxy.socks_port).await {
+        let _ = state.xray.stop().await;
+        state
+            .logs
+            .add(
+                "error",
+                &format!("Прокси запущен, но сервер не пропускает трафик: {}", e),
+            )
+            .await;
+        return Err(format!(
+            "Сервер не прошёл проверку подключения через Xray: {}",
+            e
+        ));
+    }
+    state
+        .logs
+        .add("success", "Проверка трафика через Xray прошла")
+        .await;
+
     // Start TUN or system proxy
     if settings.proxy.tun_mode {
         state.logs.add("info", "Запуск TUN режима...").await;
@@ -133,6 +159,11 @@ pub async fn connect_with_state(server: Server, state: &AppState) -> Result<Stri
                     settings.proxy.socks_port,
                 ) {
                     state.logs.add("warn", &format!("Прокси: {}", pe)).await;
+                    let _ = state.xray.stop().await;
+                    return Err(format!(
+                        "TUN не запустился, а системный прокси не удалось включить: {}",
+                        pe
+                    ));
                 }
             }
         }
@@ -142,8 +173,20 @@ pub async fn connect_with_state(server: Server, state: &AppState) -> Result<Stri
             settings.proxy.socks_port,
         ) {
             Ok(()) => state.logs.add("success", "Системный прокси настроен").await,
-            Err(e) => state.logs.add("warn", &format!("Прокси: {}", e)).await,
+            Err(e) => {
+                state.logs.add("error", &format!("Прокси: {}", e)).await;
+                let _ = state.xray.stop().await;
+                return Err(format!("Не удалось включить системный прокси: {}", e));
+            }
         }
+    } else {
+        state
+            .logs
+            .add(
+                "warn",
+                "TUN и системный прокси выключены — доступен только локальный SOCKS/HTTP proxy",
+            )
+            .await;
     }
 
     let mut current = state.current_server.lock().await;
@@ -154,6 +197,54 @@ pub async fn connect_with_state(server: Server, state: &AppState) -> Result<Stri
         .add("success", &format!("Подключено к {}", server.name))
         .await;
     Ok(format!("Подключено к {}", server.name))
+}
+
+async fn verify_local_proxy_connectivity(socks_port: u16) -> Result<(), String> {
+    let proxy = reqwest::Proxy::all(format!("socks5h://127.0.0.1:{}", socks_port))
+        .map_err(|e| format!("Proxy error: {}", e))?;
+    let client = reqwest::Client::builder()
+        .proxy(proxy)
+        .connect_timeout(std::time::Duration::from_secs(3))
+        .timeout(std::time::Duration::from_secs(
+            CONNECTIVITY_PROBE_TIMEOUT_SECS,
+        ))
+        .build()
+        .map_err(|e| format!("Client error: {}", e))?;
+
+    let mut errors = Vec::new();
+    for (name, url) in CONNECTIVITY_PROBE_TARGETS {
+        match run_connectivity_probe(&client, url).await {
+            Ok(()) => return Ok(()),
+            Err(e) => errors.push(format!("{}: {}", name, e)),
+        }
+    }
+
+    Err(errors.join(" | "))
+}
+
+async fn run_connectivity_probe(client: &reqwest::Client, url: &str) -> Result<(), String> {
+    let response = client
+        .get(url)
+        .header(
+            reqwest::header::RANGE,
+            format!("bytes=0-{}", CONNECTIVITY_PROBE_BYTES - 1),
+        )
+        .send()
+        .await
+        .map_err(|e| format!("request error for {}: {}", url, e))?
+        .error_for_status()
+        .map_err(|e| format!("HTTP error for {}: {}", url, e))?;
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("read error for {}: {}", url, e))?;
+
+    if bytes.is_empty() {
+        Err(format!("{} returned empty response", url))
+    } else {
+        Ok(())
+    }
 }
 
 pub async fn disconnect_with_state(state: &AppState) -> Result<String, String> {
