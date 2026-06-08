@@ -10,6 +10,7 @@ fn config_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
         .join("frieray");
     std::fs::create_dir_all(&dir).ok();
+    set_private_dir_permissions(&dir).ok();
     dir
 }
 
@@ -22,7 +23,43 @@ fn load_json<T: DeserializeOwned>(filename: &str) -> Option<T> {
 fn save_json<T: Serialize>(filename: &str, data: &T) -> Result<(), String> {
     let path = config_dir().join(filename);
     let json = serde_json::to_string_pretty(data).map_err(|e| format!("Serialize error: {}", e))?;
-    std::fs::write(&path, json).map_err(|e| format!("Write error: {}", e))?;
+    write_private_file(&path, json.as_bytes())?;
+    Ok(())
+}
+
+fn write_private_file(path: &PathBuf, data: &[u8]) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)
+            .map_err(|e| format!("Write error: {}", e))?;
+        file.write_all(data)
+            .map_err(|e| format!("Write error: {}", e))?;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+            .map_err(|e| format!("chmod error: {}", e))?;
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    {
+        std::fs::write(path, data).map_err(|e| format!("Write error: {}", e))
+    }
+}
+
+fn set_private_dir_permissions(path: &PathBuf) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))
+            .map_err(|e| format!("chmod error: {}", e))?;
+    }
     Ok(())
 }
 

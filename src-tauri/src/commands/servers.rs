@@ -3,7 +3,9 @@ use crate::core::xray::XrayManager;
 use crate::models::server::{Server, Subscription};
 use crate::models::settings::AppSettings;
 use crate::utils::storage;
-use crate::utils::subscription::{fetch_subscription, parse_subscription_content};
+use crate::utils::subscription::{
+    fetch_subscription, parse_subscription_content, validate_subscription_url,
+};
 use crate::utils::vless;
 use crate::AppState;
 use std::collections::HashMap;
@@ -26,6 +28,7 @@ const SERVER_SPEED_TEST_WARMUP_ATTEMPTS: usize = 1;
 const SERVER_SPEED_TEST_ATTEMPTS: usize = 3;
 const SERVER_SPEED_TEST_MIN_SUCCESSFUL_ATTEMPTS: usize = 2;
 const SERVER_SPEED_TEST_BETWEEN_ATTEMPTS_MS: u64 = 150;
+const SERVER_SPEED_TEST_STABLE_RELATIVE_SPREAD: f64 = 0.15;
 const SERVER_SPEED_TEST_FAILURE_PENALTY_FACTOR: f64 = 0.9;
 const SERVER_SPEED_TEST_MAX_INITIAL_FAILURES: usize = 2;
 const SERVER_SPEED_TEST_MIN_VALID_MBPS: f64 = 0.05;
@@ -59,6 +62,8 @@ pub async fn add_subscription(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<Subscription, String> {
+    validate_subscription_url(&url)?;
+
     let sub = Subscription {
         id: uuid::Uuid::new_v4().to_string(),
         name: if name.is_empty() {
@@ -533,9 +538,8 @@ async fn speed_test_server(server: &Server, settings: &AppSettings) -> Result<f6
 
     let config = generate_xray_config(server, &temp_settings, api_port);
     let config_path = temp_config_path(&server.id);
-    let config_json =
-        serde_json::to_string_pretty(&config).map_err(|e| format!("Config error: {}", e))?;
-    std::fs::write(&config_path, config_json).map_err(|e| format!("Write error: {}", e))?;
+    let config_json = serde_json::to_string(&config).map_err(|e| format!("Config error: {}", e))?;
+    write_private_file(&config_path, config_json.as_bytes())?;
 
     let xray_bin = XrayManager::new().find_xray_binary()?;
     let mut child = Command::new(&xray_bin)
@@ -549,18 +553,20 @@ async fn speed_test_server(server: &Server, settings: &AppSettings) -> Result<f6
         .map_err(|e| format!("Failed to start temp xray: {}", e))?;
 
     let result = async {
-        tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+        if !wait_for_local_port(socks_port, std::time::Duration::from_millis(700)).await {
+            if let Some(status) = child
+                .try_wait()
+                .map_err(|e| format!("Xray status error: {}", e))?
+            {
+                let stderr_msg = read_child_stderr(&mut child).await;
+                return Err(if stderr_msg.is_empty() {
+                    format!("Xray exited early with status {}", status)
+                } else {
+                    format!("Xray exited early: {}", stderr_msg)
+                });
+            }
 
-        if let Some(status) = child
-            .try_wait()
-            .map_err(|e| format!("Xray status error: {}", e))?
-        {
-            let stderr_msg = read_child_stderr(&mut child).await;
-            return Err(if stderr_msg.is_empty() {
-                format!("Xray exited early with status {}", status)
-            } else {
-                format!("Xray exited early: {}", stderr_msg)
-            });
+            return Err("Temp Xray SOCKS proxy did not become ready".into());
         }
 
         let proxy = reqwest::Proxy::all(format!("socks5h://127.0.0.1:{}", socks_port))
@@ -612,6 +618,13 @@ async fn speed_test_server(server: &Server, settings: &AppSettings) -> Result<f6
                 return Err(errors.join(" | "));
             }
 
+            if errors.is_empty()
+                && samples.len() >= SERVER_SPEED_TEST_MIN_SUCCESSFUL_ATTEMPTS
+                && is_speed_samples_stable(&samples)
+            {
+                break;
+            }
+
             if attempt + 1 < SERVER_SPEED_TEST_ATTEMPTS {
                 tokio::time::sleep(std::time::Duration::from_millis(
                     SERVER_SPEED_TEST_BETWEEN_ATTEMPTS_MS,
@@ -651,6 +664,26 @@ async fn run_stabilized_speed_attempt(client: &reqwest::Client) -> Result<f64, S
     Err(errors.join(" | "))
 }
 
+async fn wait_for_local_port(port: u16, deadline: std::time::Duration) -> bool {
+    use tokio::net::TcpStream;
+    use tokio::time::{sleep, timeout, Duration, Instant};
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let expires_at = Instant::now() + deadline;
+
+    loop {
+        if let Ok(Ok(_)) = timeout(Duration::from_millis(60), TcpStream::connect(addr)).await {
+            return true;
+        }
+
+        if Instant::now() >= expires_at {
+            return false;
+        }
+
+        sleep(Duration::from_millis(35)).await;
+    }
+}
+
 fn reserve_local_port() -> Result<u16, String> {
     let listener = std::net::TcpListener::bind("127.0.0.1:0")
         .map_err(|e| format!("Port bind error: {}", e))?;
@@ -663,7 +696,53 @@ fn reserve_local_port() -> Result<u16, String> {
 }
 
 fn temp_config_path(server_id: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("frieray-speedtest-{}.json", server_id))
+    let dir = dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("frieray")
+        .join("tmp");
+    std::fs::create_dir_all(&dir).ok();
+    set_private_dir_permissions(&dir).ok();
+    dir.join(format!(
+        "speedtest-{}-{}.json",
+        server_id,
+        uuid::Uuid::new_v4()
+    ))
+}
+
+fn write_private_file(path: &PathBuf, data: &[u8]) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)
+            .map_err(|e| format!("Write error: {}", e))?;
+        file.write_all(data)
+            .map_err(|e| format!("Write error: {}", e))?;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+            .map_err(|e| format!("chmod error: {}", e))?;
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    {
+        std::fs::write(path, data).map_err(|e| format!("Write error: {}", e))
+    }
+}
+
+fn set_private_dir_permissions(path: &PathBuf) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))
+            .map_err(|e| format!("chmod error: {}", e))?;
+    }
+    Ok(())
 }
 
 async fn read_child_stderr(child: &mut tokio::process::Child) -> String {
@@ -724,6 +803,20 @@ fn stabilize_speed_samples(samples: &mut [f64], failed_attempts: usize) -> f64 {
     stable_avg * penalty
 }
 
+fn is_speed_samples_stable(samples: &[f64]) -> bool {
+    if samples.len() < SERVER_SPEED_TEST_MIN_SUCCESSFUL_ATTEMPTS {
+        return false;
+    }
+
+    let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
+    let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    if min <= 0.0 || !min.is_finite() || !max.is_finite() {
+        return false;
+    }
+
+    (max - min) / min <= SERVER_SPEED_TEST_STABLE_RELATIVE_SPREAD
+}
+
 #[derive(Debug, Clone, Copy)]
 struct PingProbe {
     ping: Option<u32>,
@@ -744,10 +837,15 @@ async fn measure_server_ping(address: &str, port: u16) -> Result<PingProbe, Stri
     socket_addrs.dedup();
     socket_addrs.truncate(PING_MAX_RESOLVED_ADDRS);
 
-    let mut best_ping = None;
+    let mut join_set = tokio::task::JoinSet::new();
 
     for socket_addr in socket_addrs {
-        if let Some(ping) = measure_socket_addr_ping(socket_addr).await {
+        join_set.spawn(async move { measure_socket_addr_ping(socket_addr).await });
+    }
+
+    let mut best_ping = None;
+    while let Some(result) = join_set.join_next().await {
+        if let Ok(Some(ping)) = result {
             best_ping = match best_ping {
                 Some(current_best) if current_best <= ping => Some(current_best),
                 _ => Some(ping),

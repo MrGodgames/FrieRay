@@ -9,6 +9,8 @@ pub struct Server {
     pub protocol: Protocol,
     pub uuid: String,
     pub encryption: String,
+    #[serde(default)]
+    pub alter_id: Option<u16>,
     pub flow: Option<String>,
     pub network: String,  // tcp, ws, grpc, h2
     pub security: String, // tls, reality, none

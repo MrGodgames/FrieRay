@@ -157,27 +157,28 @@ esac
             tun_remote_ip = TUN_REMOTE_IP,
         );
 
-        // Write helper to temp, then use osascript to install (one-time password)
-        let tmp_helper = "/tmp/frieray-tun-helper";
-        let tmp_sudoers = "/tmp/frieray-sudoers";
+        // Write helper to unique temp files, then use osascript to install (one-time password)
+        let tmp_id = uuid::Uuid::new_v4();
+        let tmp_helper = std::env::temp_dir().join(format!("frieray-tun-helper-{}", tmp_id));
+        let tmp_sudoers = std::env::temp_dir().join(format!("frieray-sudoers-{}", tmp_id));
 
-        std::fs::write(tmp_helper, &helper_script)
+        std::fs::write(&tmp_helper, &helper_script)
             .map_err(|e| format!("Write helper error: {}", e))?;
 
         // Create sudoers entry
         let sudoers_content = format!("{} ALL=(root) NOPASSWD: {}\n", username, HELPER_PATH);
-        std::fs::write(tmp_sudoers, &sudoers_content)
+        std::fs::write(&tmp_sudoers, &sudoers_content)
             .map_err(|e| format!("Write sudoers error: {}", e))?;
 
         // Install with single admin password prompt
         let install_cmd = format!(
             "cp {} {} && chmod 755 {} && chown root:wheel {} && \
              cp {} {} && chmod 440 {} && chown root:wheel {}",
-            tmp_helper,
+            tmp_helper.display(),
             HELPER_PATH,
             HELPER_PATH,
             HELPER_PATH,
-            tmp_sudoers,
+            tmp_sudoers.display(),
             SUDOERS_PATH,
             SUDOERS_PATH,
             SUDOERS_PATH
@@ -199,8 +200,8 @@ esac
         }
 
         // Cleanup temp files
-        std::fs::remove_file(tmp_helper).ok();
-        std::fs::remove_file(tmp_sudoers).ok();
+        std::fs::remove_file(&tmp_helper).ok();
+        std::fs::remove_file(&tmp_sudoers).ok();
 
         log::info!("TUN helper installed at {} (passwordless)", HELPER_PATH);
         Ok(())
@@ -467,11 +468,7 @@ async fn download_tun2socks(dest: &PathBuf) -> Result<(), String> {
         "https://github.com/xjasonlyu/tun2socks/releases/latest/download/{}",
         filename
     );
-    let mirrors = vec![
-        base_url.clone(),
-        format!("https://ghproxy.net/{}", base_url),
-        format!("https://mirror.ghproxy.com/{}", base_url),
-    ];
+    let download_urls = vec![base_url.clone()];
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -481,8 +478,8 @@ async fn download_tun2socks(dest: &PathBuf) -> Result<(), String> {
 
     let mut success_resp = None;
 
-    // Try all mirrors directly first
-    for url in &mirrors {
+    // Try official GitHub release URL directly first.
+    for url in &download_urls {
         log::info!("Trying to download tun2socks from {}", url);
         if let Ok(resp) = client
             .get(url)
@@ -510,7 +507,7 @@ async fn download_tun2socks(dest: &PathBuf) -> Result<(), String> {
                 .proxy(proxy)
                 .build()
             {
-                for url in &mirrors {
+                for url in &download_urls {
                     if let Ok(resp) = proxy_client
                         .get(url)
                         .header("User-Agent", "FrieRay/0.1")

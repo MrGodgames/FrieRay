@@ -21,6 +21,7 @@ impl XrayManager {
             .join("frieray");
 
         std::fs::create_dir_all(&config_dir).ok();
+        set_private_dir_permissions(&config_dir).ok();
 
         Self {
             process: Arc::new(Mutex::new(None)),
@@ -38,7 +39,7 @@ impl XrayManager {
         let config_json =
             serde_json::to_string_pretty(&config).map_err(|e| format!("Config error: {}", e))?;
 
-        std::fs::write(&self.config_path, &config_json)
+        write_private_file(&self.config_path, config_json.as_bytes())
             .map_err(|e| format!("Write config error: {}", e))?;
 
         log::info!("Xray config written to {:?}", self.config_path);
@@ -178,15 +179,41 @@ impl XrayManager {
             return Ok(config_bin);
         }
 
-        if let Ok(output) = std::process::Command::new("which").arg("xray").output() {
-            if output.status.success() {
-                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path.is_empty() {
-                    return Ok(PathBuf::from(path));
-                }
-            }
-        }
-
         Err("Xray-core не найден. Бинарник должен быть в src-tauri/binaries/xray".into())
     }
+}
+
+fn write_private_file(path: &PathBuf, data: &[u8]) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)
+            .map_err(|e| e.to_string())?;
+        file.write_all(data).map_err(|e| e.to_string())?;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    {
+        std::fs::write(path, data).map_err(|e| e.to_string())
+    }
+}
+
+fn set_private_dir_permissions(path: &PathBuf) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }

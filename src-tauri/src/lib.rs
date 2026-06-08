@@ -64,7 +64,6 @@ pub fn run() {
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init())
         .manage(AppState {
             xray: XrayManager::new(),
             tun: TunManager::new(),
