@@ -14,6 +14,33 @@ pub struct XrayManager {
     config_path: PathBuf,
 }
 
+#[cfg(unix)]
+pub async fn cleanup_orphan_speedtest_processes() {
+    const PATTERNS: &[&str] = &["frieray-speedtest-", "/frieray/tmp/speedtest-"];
+
+    let current_pid = std::process::id().to_string();
+    for pattern in PATTERNS {
+        let Ok(output) = Command::new("pgrep").arg("-f").arg(pattern).output().await else {
+            continue;
+        };
+
+        if !output.status.success() {
+            continue;
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for pid in stdout.lines().map(str::trim).filter(|pid| !pid.is_empty()) {
+            if pid == current_pid {
+                continue;
+            }
+            let _ = Command::new("kill").arg(pid).output().await;
+        }
+    }
+}
+
+#[cfg(not(unix))]
+pub async fn cleanup_orphan_speedtest_processes() {}
+
 impl XrayManager {
     pub fn new() -> Self {
         let config_dir = dirs::config_dir()

@@ -27,6 +27,7 @@ pub struct AppState {
 async fn cleanup_network_state(state: &AppState, reason: &str) {
     log::info!("Running network cleanup: {}", reason);
 
+    crate::core::xray::cleanup_orphan_speedtest_processes().await;
     if let Err(e) = state.tun.stop().await {
         log::warn!("Startup/exit TUN cleanup: {}", e);
     }

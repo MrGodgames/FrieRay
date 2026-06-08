@@ -375,6 +375,8 @@ pub async fn ping_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>,
 /// Speed test all servers using temporary isolated Xray instances.
 #[tauri::command]
 pub async fn speed_test_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, String> {
+    crate::core::xray::cleanup_orphan_speedtest_processes().await;
+
     let settings = state.settings.lock().await.clone();
     let current_servers = state.servers.lock().await.clone();
 
