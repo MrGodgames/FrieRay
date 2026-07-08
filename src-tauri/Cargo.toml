@@ -1,8 +1,12 @@
 [package]
 name = "frieray"
 version = "0.2.3"
-description = "FrieRay — V2Ray клиент в стиле Фрирен"
-authors = ["you"]
+description = "A macOS desktop V2Ray/Xray client built with Tauri, React, and Rust."
+authors = ["MrGodgames"]
+license = "MIT"
+repository = "https://github.com/MrGodgames/FrieRay"
+homepage = "https://github.com/MrGodgames/FrieRay"
+readme = "../README.md"
 edition = "2021"
 
 [lib]

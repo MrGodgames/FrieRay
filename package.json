@@ -1,8 +1,30 @@
 {
   "name": "frieray",
-  "private": true,
   "version": "0.2.3",
+  "description": "A macOS desktop V2Ray/Xray client built with Tauri, React, and Rust.",
   "type": "module",
+  "license": "MIT",
+  "author": "MrGodgames",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrGodgames/FrieRay.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MrGodgames/FrieRay/issues"
+  },
+  "homepage": "https://github.com/MrGodgames/FrieRay#readme",
+  "keywords": [
+    "tauri",
+    "react",
+    "rust",
+    "macos",
+    "v2ray",
+    "xray",
+    "vpn",
+    "proxy",
+    "tun",
+    "desktop-app"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",

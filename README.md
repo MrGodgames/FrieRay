@@ -1,10 +1,12 @@
 # FrieRay
 
+[![CI](https://github.com/MrGodgames/FrieRay/actions/workflows/ci.yml/badge.svg)](https://github.com/MrGodgames/FrieRay/actions/workflows/ci.yml)
 ![Version](https://img.shields.io/badge/version-0.2.3-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Tauri](https://img.shields.io/badge/Tauri-2.x-24C8DB)
 ![React](https://img.shields.io/badge/React-19-61DAFB)
 ![Rust](https://img.shields.io/badge/Rust-2021-orange)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 FrieRay is a desktop V2Ray/Xray client for macOS built with Tauri 2, React, and Rust.
 
@@ -97,7 +99,7 @@ Known hardening still planned:
 - verify downloaded `tun2socks` binaries with pinned checksums
 - improve the privileged TUN helper lifecycle and add a clean uninstall command
 - reduce CSP inline-style requirements
-- add automated dependency audit checks
+- keep automated dependency audit checks in CI green
 
 ## Requirements
 
@@ -140,6 +142,20 @@ cd src-tauri
 cargo test
 cargo check
 ```
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+When reporting bugs, do not include subscription URLs, server UUIDs, passwords, access tokens, generated Xray configs, or other private connection details.
+
+## Security
+
+FrieRay touches network settings and stores local proxy/VPN configuration. Please report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
+
+Third-party bundled binaries are documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Project direction is tracked in [ROADMAP.md](ROADMAP.md). Maintainer release steps are documented in [docs/RELEASE.md](docs/RELEASE.md).
 
 ## Build Artifacts
 
@@ -190,8 +206,8 @@ FrieRay — десктопный V2Ray/Xray-клиент для macOS на Tauri
 
 В версии `0.2.3` усилены базовые настройки безопасности: HTTPS для удалённых подписок, приватные права на локальные конфиги, CSP для webview, удалены shell-permissions из Tauri frontend, а URL подписок больше не логируются целиком.
 
-Следующие задачи по безопасности: macOS Keychain для секретов, checksum для `tun2socks`, улучшенный uninstall для TUN helper и dependency audit в CI.
+Следующие задачи по безопасности: macOS Keychain для секретов, checksum для `tun2socks`, улучшенный uninstall для TUN helper и поддержка dependency audit в CI в зелёном состоянии.
 
 ## License
 
-No license file is included yet.
+FrieRay is released under the [MIT License](LICENSE).

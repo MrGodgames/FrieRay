@@ -1,0 +1,58 @@
+name: Feature request
+description: Suggest an improvement for FrieRay
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. Please keep the request focused and avoid sharing private connection data.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What workflow would this improve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you want.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Subscription import
+        - Server list / selection
+        - Connection lifecycle
+        - System proxy
+        - TUN mode
+        - Routing / split tunnel
+        - Tray / menu bar
+        - Logs / diagnostics
+        - UI / theme
+        - Build / release
+        - Security hardening
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: This request does not include private subscription URLs, server secrets, access tokens, or generated configs.
+          required: true
