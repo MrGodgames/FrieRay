@@ -1,6 +1,8 @@
 use crate::commands::connection::{
-    connect_best_server_with_app, connect_with_state, disconnect_with_state,
+    connect_best_server_rescan_with_app, connect_with_state, disconnect_with_state,
+    reconnect_best_server_rescan_with_app,
 };
+use crate::commands::servers::ping_server;
 use crate::models::server::Server;
 use crate::utils::storage;
 use crate::AppState;
@@ -22,8 +24,10 @@ const MENU_TOGGLE_WINDOW: &str = "tray-toggle-window";
 const MENU_QUIT: &str = "tray-quit";
 const MENU_SERVER_PREFIX: &str = "tray-server:";
 const TRAY_POPUP_WIDTH: f64 = 360.0;
-const TRAY_POPUP_HEIGHT: f64 = 260.0;
+const TRAY_POPUP_HEIGHT: f64 = 280.0;
 const TRAY_POPUP_MARGIN: f64 = 10.0;
+const HEALTH_CHECK_INTERVAL_SECS: u64 = 15;
+const HEALTH_CHECK_FAILURES_BEFORE_FAILOVER: u8 = 2;
 const TRAY_ICON: &[u8] = include_bytes!("../../icons/tray/dreamsvg-icon.png");
 
 #[derive(Clone)]
@@ -58,7 +62,73 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
 
     tray_builder.build(app)?;
     let _ = ensure_tray_popup_window(&app_handle);
+    start_connection_health_monitor(&app_handle);
     Ok(())
+}
+
+fn start_connection_health_monitor(app: &AppHandle) {
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let mut failures = 0u8;
+
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(HEALTH_CHECK_INTERVAL_SECS)).await;
+
+            let state = app_handle.state::<AppState>();
+            if !state.xray.is_running().await {
+                failures = 0;
+                continue;
+            }
+
+            let server = state.current_server.lock().await.clone();
+            let Some(server) = server else {
+                failures = 0;
+                continue;
+            };
+
+            match ping_server(server.address.clone(), server.port).await {
+                Ok(_) => {
+                    failures = 0;
+                }
+                Err(error) => {
+                    failures = failures.saturating_add(1);
+                    state
+                        .logs
+                        .add(
+                            "warn",
+                            &format!(
+                                "Tray health check: {} не отвечает ({}/{}): {}",
+                                server.name,
+                                failures,
+                                HEALTH_CHECK_FAILURES_BEFORE_FAILOVER,
+                                error
+                            ),
+                        )
+                        .await;
+
+                    if failures >= HEALTH_CHECK_FAILURES_BEFORE_FAILOVER {
+                        state
+                            .logs
+                            .add(
+                                "warn",
+                                "Tray health check: текущий сервер недоступен, запускаю автопереподключение...",
+                            )
+                            .await;
+
+                        if let Err(error) = reconnect_best_server_rescan_with_app(&app_handle).await {
+                            let state = app_handle.state::<AppState>();
+                            state
+                                .logs
+                                .add("error", &format!("Tray auto failover: {}", error))
+                                .await;
+                        }
+                        let _ = refresh_tray_async(&app_handle).await;
+                        failures = 0;
+                    }
+                }
+            }
+        }
+    });
 }
 
 pub fn refresh_tray(app: &AppHandle) -> Result<(), String> {
@@ -192,7 +262,7 @@ fn handle_menu_event(app: &AppHandle, id: String) {
         MENU_CONNECT => {
             let app_handle = app.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(error) = connect_best_server_with_app(&app_handle).await {
+                if let Err(error) = connect_best_server_rescan_with_app(&app_handle).await {
                     let state = app_handle.state::<AppState>();
                     state
                         .logs
@@ -464,7 +534,7 @@ fn build_tray_menu(app: &AppHandle, snapshot: &TraySnapshot) -> tauri::Result<Me
     let current_item = MenuItemBuilder::with_id(MENU_CURRENT, current_text)
         .enabled(false)
         .build(app)?;
-    let connect_item = MenuItemBuilder::with_id(MENU_CONNECT, "Подключить лучший")
+    let connect_item = MenuItemBuilder::with_id(MENU_CONNECT, "Пересканировать и подключить")
         .enabled(!snapshot.connected && !server_list.is_empty())
         .build(app)?;
     let disconnect_item = MenuItemBuilder::with_id(MENU_DISCONNECT, "Отключить")

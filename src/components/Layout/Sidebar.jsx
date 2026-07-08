@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTheme } from '../../hooks/useTheme';
 import { useI18n } from '../../hooks/useI18n';
+import { features } from '../../config/features';
 import characterImg from '../../assets/images/character-sidebar.png';
 import './Sidebar.css';
 
@@ -30,6 +31,7 @@ const navItems = [
     {
         path: '/split-tunnel',
         labelKey: 'navSplitTunnel',
+        hidden: !features.appFiltering,
         icon: (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -40,6 +42,7 @@ const navItems = [
     {
         path: '/routing',
         labelKey: 'navRouting',
+        hidden: !features.appFiltering,
         icon: (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="6" cy="6" r="3" />
@@ -100,7 +103,7 @@ export default function Sidebar() {
             </div>
 
             <nav className="sidebar-nav">
-                {navItems.map(item => (
+                {navItems.filter(item => !item.hidden).map(item => (
                     <NavLink
                         key={item.path}
                         to={item.path}
@@ -144,7 +147,7 @@ export default function Sidebar() {
                     )}
                     <span>{theme === 'dark' ? t('themeDay') : t('themeNight')}</span>
                 </button>
-                <div className="sidebar-version">v0.2.3</div>
+                <div className="sidebar-version">v0.2.4</div>
             </div>
         </aside>
     );

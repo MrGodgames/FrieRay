@@ -16,6 +16,8 @@ async function invoke(command, args = {}) {
 // ─── Connection ───
 export async function connect(server) { return invoke('connect', { server }); }
 export async function connectBestServer() { return invoke('connect_best_server'); }
+export async function connectBestServerRescan() { return invoke('connect_best_server_rescan'); }
+export async function reconnectBestServerRescan() { return invoke('reconnect_best_server_rescan'); }
 export async function disconnect() { return invoke('disconnect'); }
 export async function getConnectionStatus() { return (await invoke('get_connection_status')) ?? false; }
 export async function getCurrentServer() { return invoke('get_current_server'); }

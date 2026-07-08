@@ -86,6 +86,8 @@ pub fn run() {
             // Connection
             commands::connection::connect,
             commands::connection::connect_best_server,
+            commands::connection::connect_best_server_rescan,
+            commands::connection::reconnect_best_server_rescan,
             commands::connection::disconnect,
             commands::connection::get_connection_status,
             commands::connection::get_current_server,

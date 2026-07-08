@@ -1,7 +1,7 @@
 # FrieRay
 
 [![CI](https://github.com/MrGodgames/FrieRay/actions/workflows/ci.yml/badge.svg)](https://github.com/MrGodgames/FrieRay/actions/workflows/ci.yml)
-![Version](https://img.shields.io/badge/version-0.2.3-blue)
+![Version](https://img.shields.io/badge/version-0.2.4-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Tauri](https://img.shields.io/badge/Tauri-2.x-24C8DB)
 ![React](https://img.shields.io/badge/React-19-61DAFB)
@@ -19,10 +19,10 @@ The app focuses on a practical daily workflow: importing subscriptions, selectin
 - Per-server ping scan with parallel measurement
 - Per-server speed test through isolated temporary Xray instances
 - Best-server quick connect from the tray popup
-- macOS menu bar workflow with connect, disconnect, and auto-select actions
+- Tray rescan and auto-failover when the active server stops responding
+- macOS menu bar workflow with connect, disconnect, replacement-server search, and auto-select actions
 - System proxy mode
 - Full-traffic macOS TUN mode through `tun2socks`
-- App filtering / split-tunnel UI groundwork for per-application VPN rules
 - Russian and English interface language switcher
 - Launch at login and background tray mode
 - Live logs, traffic stats, and connection diagnostics
@@ -36,9 +36,9 @@ FrieRay supports Russian and English UI. The screenshots below use the English i
 | --- | --- |
 | ![FrieRay dashboard](docs/assets/screenshots/dashboard.png) | ![FrieRay servers](docs/assets/screenshots/servers.png) |
 
-| App Filter | Settings |
-| --- | --- |
-| ![FrieRay app filter](docs/assets/screenshots/app-filter.png) | ![FrieRay settings](docs/assets/screenshots/settings.png) |
+| Settings |
+| --- |
+| ![FrieRay settings](docs/assets/screenshots/settings.png) |
 
 ## Roadmap focus
 
@@ -46,14 +46,14 @@ FrieRay is being prepared for a wider open-source roadmap: Linux and Windows por
 
 ## Release
 
-Latest prepared version: `v0.2.3`
+Latest prepared version: `v0.2.4`
 
 Prebuilt macOS builds are published through [GitHub Releases](https://github.com/MrGodgames/FrieRay/releases).
 
 Expected macOS artifact names:
 
 ```text
-FrieRay_0.2.3_aarch64.dmg
+FrieRay_0.2.4_aarch64.dmg
 FrieRay.app
 ```
 
@@ -90,10 +90,11 @@ Stable enough for personal macOS use:
 - tray popup workflow
 - ping and speed scans
 - best-server selection
+- tray rescan and auto-failover
 
-Still experimental:
+Still experimental / roadmap-only in release builds:
 
-- Split Tunnel UI
+- per-application VPN filtering / split tunneling
 - routing editor
 - advanced protocol edge cases
 - signed update and dependency verification workflow
@@ -214,9 +215,9 @@ FrieRay — десктопный V2Ray/Xray-клиент для macOS на Tauri
 - массовая проверка ping
 - массовый speed test через временные isolated Xray-инстансы
 - быстрый выбор лучшего сервера из tray popup
+- пересканирование серверов и автопереподключение из tray
 - режим системного прокси
 - полный TUN-режим на macOS
-- интерфейс фильтрации приложений / split tunnel для будущих per-app VPN правил
 - переключение интерфейса между русским и английским языком
 - автозапуск при входе в систему
 - логи, статистика трафика и диагностика
@@ -224,7 +225,7 @@ FrieRay — десктопный V2Ray/Xray-клиент для macOS на Tauri
 
 ### Безопасность
 
-В версии `0.2.3` усилены базовые настройки безопасности: HTTPS для удалённых подписок, приватные права на локальные конфиги, CSP для webview, удалены shell-permissions из Tauri frontend, а URL подписок больше не логируются целиком.
+В версии `0.2.4` улучшен tray workflow и сохранены базовые настройки безопасности: HTTPS для удалённых подписок, приватные права на локальные конфиги, CSP для webview, удалены shell-permissions из Tauri frontend, а URL подписок больше не логируются целиком.
 
 Следующие задачи по безопасности: macOS Keychain для секретов, checksum для `tun2socks`, улучшенный uninstall для TUN helper и поддержка dependency audit в CI в зелёном состоянии.
 

@@ -42,11 +42,6 @@ const PING_FAILURE_PENALTY_MS: u32 = 35;
 const PING_MAX_RESOLVED_ADDRS: usize = 3;
 const AUTO_SELECT_SPEED_CANDIDATES: usize = 6;
 
-pub struct AutoSelectedServer {
-    pub server: Server,
-    pub reason: String,
-}
-
 #[derive(Clone, serde::Serialize)]
 pub struct AutoSelectProgress {
     pub stage: String,
@@ -234,11 +229,14 @@ pub async fn get_active_server(state: State<'_, AppState>) -> Result<Option<Serv
     Ok(active.clone())
 }
 
-pub async fn choose_best_server(
+pub async fn rank_servers_for_auto_select(
     app: &AppHandle,
     state: &AppState,
-) -> Result<AutoSelectedServer, String> {
-    let servers = state.servers.lock().await.clone();
+    force_refresh: bool,
+    excluded_ids: &[String],
+) -> Result<Vec<Server>, String> {
+    let mut servers = state.servers.lock().await.clone();
+    servers.retain(|server| !excluded_ids.iter().any(|id| id == &server.id));
 
     if servers.is_empty() {
         return Err("Нет серверов для подключения".into());
@@ -246,27 +244,35 @@ pub async fn choose_best_server(
 
     emit_auto_select_progress(app, "prepare", "Подбираю лучший сервер для подключения...");
 
-    if let Some(server) = best_server_by_saved_speed(&servers) {
-        let speed = server.speed_mbps.unwrap_or_default();
-        emit_auto_select_progress(
-            app,
-            "saved-speed",
-            &format!(
-                "Использую сохранённый speed test: {} ({:.1} Mb/s)",
-                server.name, speed
-            ),
-        );
-        return Ok(AutoSelectedServer {
-            server,
-            reason: format!("по скорости {:.1} Mb/s", speed),
-        });
+    if !force_refresh {
+        if let Some(server) = best_server_by_saved_speed(&servers) {
+            let speed = server.speed_mbps.unwrap_or_default();
+            emit_auto_select_progress(
+                app,
+                "saved-speed",
+                &format!(
+                    "Использую сохранённый speed test: {} ({:.1} Mb/s)",
+                    server.name, speed
+                ),
+            );
+            return Ok(vec![server]);
+        }
+    } else {
+        state
+            .logs
+            .add(
+                "info",
+                "Автовыбор сервера: принудительно пересканирую доступность перед подключением...",
+            )
+            .await;
+        emit_auto_select_progress(app, "rescan", "Пересканирую доступность серверов...");
     }
 
     state
         .logs
         .add(
             "info",
-            "Автовыбор сервера: нет данных speed test, подбираю кандидатов и измеряю скорость...",
+            "Автовыбор сервера: подбираю кандидатов и измеряю скорость...",
         )
         .await;
     emit_auto_select_progress(app, "ping", "Проверяю доступность серверов...");
@@ -283,15 +289,33 @@ pub async fn choose_best_server(
     );
     let tested_servers = refresh_speed_snapshot(state, &speed_candidates).await?;
 
-    if let Some(server) = best_server_by_saved_speed(&tested_servers) {
-        let speed = server.speed_mbps.unwrap_or_default();
-        return Ok(AutoSelectedServer {
-            server,
-            reason: format!("по скорости {:.1} Mb/s", speed),
-        });
+    let mut ranked: Vec<Server> = tested_servers
+        .into_iter()
+        .filter(|server| {
+            !excluded_ids.iter().any(|id| id == &server.id)
+                && server.reachable != Some(false)
+                && server.speed_reachable != Some(false)
+        })
+        .collect();
+    ranked.sort_by(compare_servers_for_auto_select);
+
+    if ranked.is_empty() {
+        return Err("Не удалось определить доступный сервер".into());
     }
 
-    Err("Не удалось определить лучший сервер по скорости".into())
+    if let Some(server) = ranked.first() {
+        let speed = server.speed_mbps.unwrap_or_default();
+        emit_auto_select_progress(
+            app,
+            "selected",
+            &format!(
+                "Выбран сервер: {} ({:.1} Mb/s)",
+                server.name, speed
+            ),
+        );
+    }
+
+    Ok(ranked)
 }
 
 /// Ping a single server via TCP connect

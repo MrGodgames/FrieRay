@@ -7,6 +7,7 @@ import Routing from "./pages/Routing";
 import Logs from "./pages/Logs";
 import Settings from "./pages/Settings";
 import TrayPopup from "./pages/TrayPopup";
+import { features } from "./config/features";
 
 function App() {
   const windowLabel =
@@ -23,8 +24,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/servers" element={<Servers />} />
-        <Route path="/split-tunnel" element={<SplitTunnel />} />
-        <Route path="/routing" element={<Routing />} />
+        {features.appFiltering && <Route path="/split-tunnel" element={<SplitTunnel />} />}
+        {features.appFiltering && <Route path="/routing" element={<Routing />} />}
         <Route path="/logs" element={<Logs />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>

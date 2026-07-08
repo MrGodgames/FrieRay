@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.2.4 - Tray Reliability and Release UI Cleanup
+
+Release type: patch
+
+This release improves the macOS tray workflow and hides unfinished app filtering/routing screens from production builds.
+
+### Added
+
+- Fresh tray quick-connect flow that rescans servers before choosing the best candidate.
+- Auto-failover from the tray/background health monitor after repeated ping failures on the current server.
+- Fallback connection attempts: if the best candidate fails the real connectivity probe, FrieRay tries the next ranked server.
+- New Tauri commands for rescan-based best-server connection and replacement-server reconnect.
+- Feature flag gate for unfinished per-application filtering/routing UI.
+
+### Improved
+
+- Tray popup now behaves more like a compact macOS menu-bar popup.
+- Tray actions were simplified into menu-style rows instead of large in-app buttons.
+- Tray status copy is shorter and avoids exposing implementation details in the UI.
+- Release builds no longer show the experimental App Filter and Routing navigation items.
+- The public README now describes the release-safe UI while keeping per-app filtering in the roadmap.
+
+### Verification
+
+- `npm audit --audit-level=moderate`
+- `npm run build`
+- `cargo test`
+- `cargo check`
+
 ## v0.2.3 - Connection Validation Hotfix
 
 Release type: patch

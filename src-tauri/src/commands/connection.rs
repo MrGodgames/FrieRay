@@ -10,56 +10,130 @@ const CONNECTIVITY_PROBE_BYTES: u64 = 16 * 1024;
 const CONNECTIVITY_PROBE_TIMEOUT_SECS: u64 = 8;
 
 pub async fn connect_best_server_with_app(app: &tauri::AppHandle) -> Result<String, String> {
+    connect_ranked_server_with_app(app, false, false).await
+}
+
+pub async fn connect_best_server_rescan_with_app(app: &tauri::AppHandle) -> Result<String, String> {
+    connect_ranked_server_with_app(app, true, false).await
+}
+
+pub async fn reconnect_best_server_rescan_with_app(
+    app: &tauri::AppHandle,
+) -> Result<String, String> {
+    connect_ranked_server_with_app(app, true, true).await
+}
+
+async fn connect_ranked_server_with_app(
+    app: &tauri::AppHandle,
+    force_rescan: bool,
+    exclude_current: bool,
+) -> Result<String, String> {
     let state = app.state::<AppState>();
-    let selection = crate::commands::servers::choose_best_server(app, &state).await?;
+    let current_id = if exclude_current {
+        state
+            .current_server
+            .lock()
+            .await
+            .as_ref()
+            .map(|server| server.id.clone())
+    } else {
+        None
+    };
+    let excluded_ids = current_id.into_iter().collect::<Vec<_>>();
+    let candidates = crate::commands::servers::rank_servers_for_auto_select(
+        app,
+        &state,
+        force_rescan,
+        &excluded_ids,
+    )
+    .await?;
 
-    {
-        let mut active = state.active_server.lock().await;
-        *active = Some(selection.server.clone());
+    if state.xray.is_running().await {
+        let _ = app.emit(
+            crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
+            crate::commands::servers::AutoSelectProgress {
+                stage: "disconnect".to_string(),
+                message: "Отключаю текущее соединение перед сменой сервера...".into(),
+            },
+        );
+        let _ = disconnect_with_state(&state).await;
     }
-    crate::utils::storage::save_active_server_id(&selection.server.id)?;
 
-    state
-        .logs
-        .add(
-            "info",
-            &format!(
-                "Автовыбор сервера: {} {}",
-                selection.server.name, selection.reason
-            ),
-        )
-        .await;
+    let mut last_error = None;
+
+    for server in candidates {
+        let reason = if let Some(speed) = server.speed_mbps {
+            format!("по скорости {:.1} Mb/s", speed)
+        } else if let Some(ping) = server.ping {
+            format!("по ping {} ms", ping)
+        } else {
+            "по доступности".into()
+        };
+
+        {
+            let mut active = state.active_server.lock().await;
+            *active = Some(server.clone());
+        }
+        crate::utils::storage::save_active_server_id(&server.id)?;
+
+        state
+            .logs
+            .add(
+                "info",
+                &format!("Автовыбор сервера: {} {}", server.name, reason),
+            )
+            .await;
+        let _ = app.emit(
+            crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
+            crate::commands::servers::AutoSelectProgress {
+                stage: "connect".to_string(),
+                message: format!("Подключаюсь к {}...", server.name),
+            },
+        );
+
+        match connect_with_state(server.clone(), &state).await {
+            Ok(message) => {
+                let _ = app.emit(
+                    crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
+                    crate::commands::servers::AutoSelectProgress {
+                        stage: "done".to_string(),
+                        message: message.clone(),
+                    },
+                );
+                let _ = crate::core::tray::refresh_tray_async(app).await;
+                return Ok(message);
+            }
+            Err(error) => {
+                state
+                    .logs
+                    .add(
+                        "warn",
+                        &format!("{} не прошёл подключение, пробую следующий сервер", server.name),
+                    )
+                    .await;
+                let _ = app.emit(
+                    crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
+                    crate::commands::servers::AutoSelectProgress {
+                        stage: "retry".to_string(),
+                        message: format!("{} не ответил, пробую следующий...", server.name),
+                    },
+                );
+                let _ = disconnect_with_state(&state).await;
+                last_error = Some(error);
+            }
+        }
+    }
+
+    let error = last_error.unwrap_or_else(|| "Нет доступных серверов для подключения".into());
     let _ = app.emit(
         crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
         crate::commands::servers::AutoSelectProgress {
-            stage: "connect".to_string(),
-            message: format!("Подключаюсь к {}...", selection.server.name),
+            stage: "error".to_string(),
+            message: error.clone(),
         },
     );
-
-    let result = connect_with_state(selection.server, &state).await;
-    match &result {
-        Ok(message) => {
-            let _ = app.emit(
-                crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
-                crate::commands::servers::AutoSelectProgress {
-                    stage: "done".to_string(),
-                    message: message.clone(),
-                },
-            );
-        }
-        Err(error) => {
-            let _ = app.emit(
-                crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
-                crate::commands::servers::AutoSelectProgress {
-                    stage: "error".to_string(),
-                    message: error.clone(),
-                },
-            );
-        }
-    }
     let _ = crate::core::tray::refresh_tray_async(app).await;
-    result
+    Err(error)
 }
 
 pub async fn connect_with_state(server: Server, state: &AppState) -> Result<String, String> {
@@ -291,6 +365,16 @@ pub async fn connect(
 #[tauri::command]
 pub async fn connect_best_server(app: tauri::AppHandle) -> Result<String, String> {
     connect_best_server_with_app(&app).await
+}
+
+#[tauri::command]
+pub async fn connect_best_server_rescan(app: tauri::AppHandle) -> Result<String, String> {
+    connect_best_server_rescan_with_app(&app).await
+}
+
+#[tauri::command]
+pub async fn reconnect_best_server_rescan(app: tauri::AppHandle) -> Result<String, String> {
+    reconnect_best_server_rescan_with_app(&app).await
 }
 
 #[tauri::command]
