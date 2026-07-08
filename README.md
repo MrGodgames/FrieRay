@@ -22,9 +22,27 @@ The app focuses on a practical daily workflow: importing subscriptions, selectin
 - macOS menu bar workflow with connect, disconnect, and auto-select actions
 - System proxy mode
 - Full-traffic macOS TUN mode through `tun2socks`
+- App filtering / split-tunnel UI groundwork for per-application VPN rules
+- Russian and English interface language switcher
 - Launch at login and background tray mode
 - Live logs, traffic stats, and connection diagnostics
 - Light/dark themes and fantasy/classic visual modes
+
+## Screenshots
+
+FrieRay supports Russian and English UI. The screenshots below use the English interface for public documentation.
+
+| Dashboard | Servers |
+| --- | --- |
+| ![FrieRay dashboard](docs/assets/screenshots/dashboard.png) | ![FrieRay servers](docs/assets/screenshots/servers.png) |
+
+| App Filter | Settings |
+| --- | --- |
+| ![FrieRay app filter](docs/assets/screenshots/app-filter.png) | ![FrieRay settings](docs/assets/screenshots/settings.png) |
+
+## Roadmap focus
+
+FrieRay is being prepared for a wider open-source roadmap: Linux and Windows ports, safer cross-platform secret storage, and per-application VPN filtering so users can route only selected apps through FrieRay. See [ROADMAP.md](ROADMAP.md) for details.
 
 ## Release
 
@@ -198,6 +216,8 @@ FrieRay — десктопный V2Ray/Xray-клиент для macOS на Tauri
 - быстрый выбор лучшего сервера из tray popup
 - режим системного прокси
 - полный TUN-режим на macOS
+- интерфейс фильтрации приложений / split tunnel для будущих per-app VPN правил
+- переключение интерфейса между русским и английским языком
 - автозапуск при входе в систему
 - логи, статистика трафика и диагностика
 - светлая/тёмная тема и fantasy/classic режимы интерфейса

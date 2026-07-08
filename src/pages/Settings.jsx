@@ -3,11 +3,13 @@ import Card, { CardBody } from '../components/UI/Card';
 import Toggle from '../components/UI/Toggle';
 import Button from '../components/UI/Button';
 import { useTheme } from '../hooks/useTheme';
+import { useI18n } from '../hooks/useI18n';
 import * as api from '../api/tauri';
 import './Settings.css';
 
 export default function Settings() {
     const { theme, setTheme, uiStyle, setUiStyle, isClassic } = useTheme();
+    const { language, setLanguage, t } = useI18n();
     const [settings, setSettings] = useState({
         general: { auto_connect: false, start_minimized: false, launch_at_login: false, auto_update_subs: true, auto_update_interval_hours: 6 },
         proxy: { system_proxy: true, tun_mode: false, socks_port: 10808, http_port: 10809 },
@@ -64,57 +66,80 @@ export default function Settings() {
     return (
         <div className="settings-page">
             <div className="page-header">
-                <h1><span className="text-gradient">Настройки</span></h1>
-                <p>Конфигурация приложения</p>
+                <h1><span className="text-gradient">{t('settingsTitle')}</span></h1>
+                <p>{t('settingsSubtitle')}</p>
             </div>
 
             <div className="settings-section">
-                <h4 className="settings-section-title">✦ Оформление</h4>
+                <h4 className="settings-section-title">{t('appearance')}</h4>
                 <Card variant="glass" hover={false}>
                     <CardBody>
                         <div className="settings-list">
                             <div className="settings-choice-row">
                                 <div className="settings-choice-copy">
-                                    <span className="settings-choice-label">Цветовая тема</span>
-                                    <span className="settings-choice-desc">Переключает светлую и тёмную палитру интерфейса.</span>
+                                    <span className="settings-choice-label">{t('languageLabel')}</span>
+                                    <span className="settings-choice-desc">{t('languageDesc')}</span>
                                 </div>
-                                <div className="settings-segmented" role="tablist" aria-label="Выбор цветовой темы">
+                                <div className="settings-segmented" role="tablist" aria-label={t('languageLabel')}>
                                     <button
                                         type="button"
-                                        className={`settings-segment ${theme === 'dark' ? 'active' : ''}`}
-                                        onClick={() => setTheme('dark')}
+                                        className={`settings-segment ${language === 'ru' ? 'active' : ''}`}
+                                        onClick={() => setLanguage('ru')}
                                     >
-                                        Тёмная
+                                        RU
                                     </button>
                                     <button
                                         type="button"
-                                        className={`settings-segment ${theme === 'light' ? 'active' : ''}`}
-                                        onClick={() => setTheme('light')}
+                                        className={`settings-segment ${language === 'en' ? 'active' : ''}`}
+                                        onClick={() => setLanguage('en')}
                                     >
-                                        Светлая
+                                        EN
                                     </button>
                                 </div>
                             </div>
 
                             <div className="settings-choice-row">
                                 <div className="settings-choice-copy">
-                                    <span className="settings-choice-label">Стиль интерфейса</span>
-                                    <span className="settings-choice-desc">Классический режим убирает персонажа, частицы и фэнтези-декор.</span>
+                                    <span className="settings-choice-label">{t('colorTheme')}</span>
+                                    <span className="settings-choice-desc">{t('colorThemeDesc')}</span>
                                 </div>
-                                <div className="settings-segmented" role="tablist" aria-label="Выбор стиля интерфейса">
+                                <div className="settings-segmented" role="tablist" aria-label={t('colorTheme')}>
+                                    <button
+                                        type="button"
+                                        className={`settings-segment ${theme === 'dark' ? 'active' : ''}`}
+                                        onClick={() => setTheme('dark')}
+                                    >
+                                        {t('themeDark')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`settings-segment ${theme === 'light' ? 'active' : ''}`}
+                                        onClick={() => setTheme('light')}
+                                    >
+                                        {t('themeLight')}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="settings-choice-row">
+                                <div className="settings-choice-copy">
+                                    <span className="settings-choice-label">{t('uiStyle')}</span>
+                                    <span className="settings-choice-desc">{t('uiStyleDesc')}</span>
+                                </div>
+                                <div className="settings-segmented" role="tablist" aria-label={t('uiStyle')}>
                                     <button
                                         type="button"
                                         className={`settings-segment ${uiStyle === 'fantasy' ? 'active' : ''}`}
                                         onClick={() => setUiStyle('fantasy')}
                                     >
-                                        Фэнтези
+                                        {t('fantasy')}
                                     </button>
                                     <button
                                         type="button"
                                         className={`settings-segment ${uiStyle === 'classic' ? 'active' : ''}`}
                                         onClick={() => setUiStyle('classic')}
                                     >
-                                        Классический
+                                        {t('classic')}
                                     </button>
                                 </div>
                             </div>
@@ -125,35 +150,35 @@ export default function Settings() {
 
             {/* General */}
             <div className="settings-section">
-                <h4 className="settings-section-title">✦ Общие</h4>
+                <h4 className="settings-section-title">{t('general')}</h4>
                 <Card variant="glass" hover={false}>
                     <CardBody>
                         <div className="settings-list">
                             <Toggle
                                 id="auto-connect"
-                                label="Автоподключение"
-                                description="Подключаться к последнему серверу при запуске"
+                                label={t('autoConnect')}
+                                description={t('autoConnectDesc')}
                                 checked={settings.general.auto_connect}
                                 onChange={(v) => set('general', 'auto_connect', v)}
                             />
                             <Toggle
                                 id="start-minimized"
-                                label="Запускать свёрнуто"
-                                description="Стартует в tray и без открытия главного окна"
+                                label={t('startMinimized')}
+                                description={t('startMinimizedDesc')}
                                 checked={settings.general.start_minimized}
                                 onChange={(v) => set('general', 'start_minimized', v)}
                             />
                             <Toggle
                                 id="launch-at-login"
-                                label="Запускать при входе в систему"
-                                description="На macOS создаёт login item и позволяет держать FrieRay в фоне"
+                                label={t('launchAtLogin')}
+                                description={t('launchAtLoginDesc')}
                                 checked={settings.general.launch_at_login}
                                 onChange={(v) => set('general', 'launch_at_login', v)}
                             />
                             <Toggle
                                 id="auto-update-subs"
-                                label="Автообновление подписок"
-                                description="Обновлять серверы каждые 6 часов"
+                                label={t('autoUpdateSubs')}
+                                description={t('autoUpdateSubsDesc')}
                                 checked={settings.general.auto_update_subs}
                                 onChange={(v) => set('general', 'auto_update_subs', v)}
                             />
@@ -164,14 +189,14 @@ export default function Settings() {
 
             {/* Proxy */}
             <div className="settings-section">
-                <h4 className="settings-section-title">✦ Прокси</h4>
+                <h4 className="settings-section-title">{t('proxy')}</h4>
                 <Card variant="glass" hover={false}>
                     <CardBody>
                         <div className="settings-list">
                             <Toggle
                                 id="system-proxy"
-                                label="Системный прокси"
-                                description="Настраивает прокси в ОС (работает не для всех приложений)"
+                                label={t('systemProxy')}
+                                description={t('systemProxyDesc')}
                                 checked={settings.proxy.system_proxy && !settings.proxy.tun_mode}
                                 onChange={(v) => {
                                     if (v) {
@@ -183,8 +208,8 @@ export default function Settings() {
                             />
                             <Toggle
                                 id="tun-mode"
-                                label="TUN режим (рекомендуется)"
-                                description="Перехват ВСЕГО трафика как настоящий VPN"
+                                label={t('tunModeRecommended')}
+                                description={t('tunModeDesc')}
                                 checked={settings.proxy.tun_mode}
                                 onChange={(v) => {
                                     if (v) {
@@ -204,7 +229,7 @@ export default function Settings() {
                             />
                             <div className="settings-input-group">
                                 <div className="settings-input-item">
-                                    <label className="settings-input-label">SOCKS5 порт</label>
+                                    <label className="settings-input-label">{t('socksPort')}</label>
                                     <input
                                         type="number"
                                         className="fr-input fr-input-sm"
@@ -213,7 +238,7 @@ export default function Settings() {
                                     />
                                 </div>
                                 <div className="settings-input-item">
-                                    <label className="settings-input-label">HTTP порт</label>
+                                    <label className="settings-input-label">{t('httpPort')}</label>
                                     <input
                                         type="number"
                                         className="fr-input fr-input-sm"
@@ -229,12 +254,12 @@ export default function Settings() {
 
             {/* DNS */}
             <div className="settings-section">
-                <h4 className="settings-section-title">✦ DNS</h4>
+                <h4 className="settings-section-title">{t('dns')}</h4>
                 <Card variant="glass" hover={false}>
                     <CardBody>
                         <div className="settings-list">
                             <div className="settings-input-item" style={{ width: '100%' }}>
-                                <label className="settings-input-label">DoH сервер</label>
+                                <label className="settings-input-label">{t('dohServer')}</label>
                                 <input
                                     type="text"
                                     className="fr-input"
@@ -250,23 +275,23 @@ export default function Settings() {
             {/* Save button */}
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <Button variant="accent" onClick={handleSave}>
-                    {saved ? '✓ Сохранено' : 'Сохранить настройки'}
+                    {saved ? t('saved') : t('saveSettings')}
                 </Button>
-                {saved && <span style={{ color: 'var(--accent-400)', fontSize: '0.82rem' }}>Настройки сохранены!</span>}
+                {saved && <span style={{ color: 'var(--accent-400)', fontSize: '0.82rem' }}>{t('settingsSaved')}</span>}
             </div>
 
             {/* About */}
             <div className="settings-section">
-                <h4 className="settings-section-title">✦ О программе</h4>
+                <h4 className="settings-section-title">{t('about')}</h4>
                 <Card variant="glass" hover={false}>
                     <CardBody>
                         <div className="about-info">
                             <div className="about-logo text-gradient">FrieRay</div>
-                            <div className="about-version">v0.2.1</div>
+                            <div className="about-version">v0.2.3</div>
                             <p className="about-desc">
                                 {isClassic
-                                    ? 'Минималистичный V2Ray клиент без аниме-стилистики'
-                                    : 'V2Ray клиент в стиле «Провожающая в последний путь Фрирен»'}
+                                    ? t('aboutClassic')
+                                    : t('aboutFantasy')}
                             </p>
                             <p className="about-tech">Tauri v2 • React • Xray-core</p>
                         </div>

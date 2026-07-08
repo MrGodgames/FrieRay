@@ -1,12 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTheme } from '../../hooks/useTheme';
+import { useI18n } from '../../hooks/useI18n';
 import characterImg from '../../assets/images/character-sidebar.png';
 import './Sidebar.css';
 
 const navItems = [
     {
         path: '/',
-        label: 'Панель',
+        labelKey: 'navDashboard',
         icon: (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -16,7 +17,7 @@ const navItems = [
     },
     {
         path: '/servers',
-        label: 'Серверы',
+        labelKey: 'navServers',
         icon: (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
@@ -27,8 +28,30 @@ const navItems = [
         ),
     },
     {
+        path: '/split-tunnel',
+        labelKey: 'navSplitTunnel',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M9 12l2 2 4-5" />
+            </svg>
+        ),
+    },
+    {
+        path: '/routing',
+        labelKey: 'navRouting',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="18" cy="18" r="3" />
+                <path d="M8.5 8.5l7 7" />
+                <path d="M18 3v6h-6" />
+            </svg>
+        ),
+    },
+    {
         path: '/logs',
-        label: 'Логи',
+        labelKey: 'navLogs',
         icon: (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -40,7 +63,7 @@ const navItems = [
     },
     {
         path: '/settings',
-        label: 'Настройки',
+        labelKey: 'navSettings',
         icon: (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" />
@@ -52,6 +75,7 @@ const navItems = [
 
 export default function Sidebar() {
     const { theme, toggleTheme, isClassic } = useTheme();
+    const { t } = useI18n();
     const location = useLocation();
 
     return (
@@ -86,7 +110,7 @@ export default function Sidebar() {
                     >
                         <span className="sidebar-nav-indicator" />
                         <span className="sidebar-nav-icon">{item.icon}</span>
-                        <span className="sidebar-nav-label">{item.label}</span>
+                        <span className="sidebar-nav-label">{t(item.labelKey)}</span>
                         {!isClassic && item.path === location.pathname && (
                             <span className="sidebar-nav-sparkle">✦</span>
                         )}
@@ -100,7 +124,7 @@ export default function Sidebar() {
                     <span className="sidebar-divider-diamond">{isClassic ? '•' : '◆'}</span>
                     <span className="sidebar-divider-line" />
                 </div>
-                <button className="theme-toggle" onClick={toggleTheme} title="Переключить тему">
+                <button className="theme-toggle" onClick={toggleTheme} title={t('themeToggleTitle')}>
                     {theme === 'dark' ? (
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="5" />
@@ -118,9 +142,9 @@ export default function Sidebar() {
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                         </svg>
                     )}
-                    <span>{theme === 'dark' ? 'День' : 'Ночь'}</span>
+                    <span>{theme === 'dark' ? t('themeDay') : t('themeNight')}</span>
                 </button>
-                <div className="sidebar-version">v0.2.1</div>
+                <div className="sidebar-version">v0.2.3</div>
             </div>
         </aside>
     );

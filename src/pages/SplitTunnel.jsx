@@ -2,22 +2,24 @@ import { useState } from 'react';
 import Card, { CardHeader, CardBody } from '../components/UI/Card';
 import Toggle from '../components/UI/Toggle';
 import Button from '../components/UI/Button';
+import { useI18n } from '../hooks/useI18n';
 import './SplitTunnel.css';
 
 const defaultApps = [
-    { id: 'chrome', name: 'Google Chrome', icon: '🌐', category: 'Браузеры', enabled: true },
-    { id: 'firefox', name: 'Firefox', icon: '🦊', category: 'Браузеры', enabled: false },
-    { id: 'safari', name: 'Safari', icon: '🧭', category: 'Браузеры', enabled: false },
-    { id: 'telegram', name: 'Telegram', icon: '💬', category: 'Мессенджеры', enabled: true },
-    { id: 'discord', name: 'Discord', icon: '🎮', category: 'Мессенджеры', enabled: true },
-    { id: 'spotify', name: 'Spotify', icon: '🎵', category: 'Медиа', enabled: false },
-    { id: 'youtube', name: 'YouTube (в браузере)', icon: '📺', category: 'Медиа', enabled: true },
-    { id: 'steam', name: 'Steam', icon: '🎮', category: 'Игры', enabled: false },
-    { id: 'terminal', name: 'Terminal', icon: '⌨️', category: 'Системные', enabled: false },
-    { id: 'vscode', name: 'VS Code', icon: '💻', category: 'Разработка', enabled: false },
+    { id: 'chrome', name: 'Google Chrome', icon: '🌐', categoryKey: 'categoryBrowsers', enabled: true },
+    { id: 'firefox', name: 'Firefox', icon: '🦊', categoryKey: 'categoryBrowsers', enabled: false },
+    { id: 'safari', name: 'Safari', icon: '🧭', categoryKey: 'categoryBrowsers', enabled: false },
+    { id: 'telegram', name: 'Telegram', icon: '💬', categoryKey: 'categoryMessengers', enabled: true },
+    { id: 'discord', name: 'Discord', icon: '🎮', categoryKey: 'categoryMessengers', enabled: true },
+    { id: 'spotify', name: 'Spotify', icon: '🎵', categoryKey: 'categoryMedia', enabled: false },
+    { id: 'youtube', nameKey: 'youtubeBrowser', icon: '📺', categoryKey: 'categoryMedia', enabled: true },
+    { id: 'steam', name: 'Steam', icon: '🎮', categoryKey: 'categoryGames', enabled: false },
+    { id: 'terminal', name: 'Terminal', icon: '⌨️', categoryKey: 'categorySystem', enabled: false },
+    { id: 'vscode', name: 'VS Code', icon: '💻', categoryKey: 'categoryDev', enabled: false },
 ];
 
 export default function SplitTunnel() {
+    const { t } = useI18n();
     const [mode, setMode] = useState('whitelist'); // whitelist = only selected apps use proxy
     const [apps, setApps] = useState(defaultApps);
     const [searchQuery, setSearchQuery] = useState('');
@@ -31,20 +33,20 @@ export default function SplitTunnel() {
     const enabledCount = apps.filter(a => a.enabled).length;
 
     const filteredApps = apps.filter(app =>
-        app.name.toLowerCase().includes(searchQuery.toLowerCase())
+        (app.nameKey ? t(app.nameKey) : app.name).toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const groupedApps = filteredApps.reduce((acc, app) => {
-        if (!acc[app.category]) acc[app.category] = [];
-        acc[app.category].push(app);
+        if (!acc[app.categoryKey]) acc[app.categoryKey] = [];
+        acc[app.categoryKey].push(app);
         return acc;
     }, {});
 
     return (
         <div className="split-tunnel-page">
             <div className="page-header">
-                <h1><span className="text-gradient">Split Tunnel</span></h1>
-                <p>Выберите приложения, которые будут использовать прокси</p>
+                <h1><span className="text-gradient">{t('splitTitle')}</span></h1>
+                <p>{t('splitSubtitle')}</p>
             </div>
 
             {/* Mode selector */}
@@ -57,8 +59,8 @@ export default function SplitTunnel() {
                         >
                             <span className="split-mode-icon">✅</span>
                             <div className="split-mode-info">
-                                <span className="split-mode-label">Белый список</span>
-                                <span className="split-mode-desc">Только выбранные приложения через прокси</span>
+                                <span className="split-mode-label">{t('whitelist')}</span>
+                                <span className="split-mode-desc">{t('whitelistDesc')}</span>
                             </div>
                         </button>
                         <button
@@ -67,8 +69,8 @@ export default function SplitTunnel() {
                         >
                             <span className="split-mode-icon">🚫</span>
                             <div className="split-mode-info">
-                                <span className="split-mode-label">Чёрный список</span>
-                                <span className="split-mode-desc">Все приложения кроме выбранных через прокси</span>
+                                <span className="split-mode-label">{t('blacklist')}</span>
+                                <span className="split-mode-desc">{t('blacklistDesc')}</span>
                             </div>
                         </button>
                     </div>
@@ -78,8 +80,7 @@ export default function SplitTunnel() {
             {/* Stats */}
             <div className="split-stats">
                 <span className="split-stat">
-                    <strong>{enabledCount}</strong> из {apps.length} приложений
-                    {mode === 'whitelist' ? ' через прокси' : ' исключено'}
+                    {t('splitStats', { enabled: enabledCount, total: apps.length, mode })}
                 </span>
             </div>
 
@@ -91,7 +92,7 @@ export default function SplitTunnel() {
                 <input
                     type="text"
                     className="fr-input split-search-input"
-                    placeholder="Поиск приложений..."
+                    placeholder={t('searchApps')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -99,9 +100,9 @@ export default function SplitTunnel() {
 
             {/* App list */}
             <div className="split-app-list">
-                {Object.entries(groupedApps).map(([category, categoryApps]) => (
-                    <div key={category} className="split-category">
-                        <h4 className="split-category-title">{category}</h4>
+                {Object.entries(groupedApps).map(([categoryKey, categoryApps]) => (
+                    <div key={categoryKey} className="split-category">
+                        <h4 className="split-category-title">{t(categoryKey)}</h4>
                         <Card variant="glass" hover={false}>
                             <CardBody>
                                 <div className="split-category-apps">
@@ -109,7 +110,7 @@ export default function SplitTunnel() {
                                         <div key={app.id} className={`split-app-item ${app.enabled ? 'enabled' : ''}`}>
                                             <div className="split-app-info">
                                                 <span className="split-app-icon">{app.icon}</span>
-                                                <span className="split-app-name">{app.name}</span>
+                                                <span className="split-app-name">{app.nameKey ? t(app.nameKey) : app.name}</span>
                                             </div>
                                             <Toggle
                                                 id={`app-${app.id}`}

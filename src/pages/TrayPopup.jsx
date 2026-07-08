@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import Button from '../components/UI/Button';
 import { useTheme } from '../hooks/useTheme';
+import { useI18n } from '../hooks/useI18n';
 import * as api from '../api/tauri';
 import './TrayPopup.css';
 
@@ -9,6 +10,7 @@ const AUTO_SELECT_PROGRESS_EVENT = 'tray-autoselect-progress';
 
 export default function TrayPopup() {
     const { isClassic } = useTheme();
+    const { t } = useI18n();
     const [activeServer, setActiveServer] = useState(null);
     const [currentServer, setCurrentServer] = useState(null);
     const [connected, setConnected] = useState(false);
@@ -110,10 +112,10 @@ export default function TrayPopup() {
         setError(null);
         try {
             if (connected) {
-                setProgress({ stage: 'disconnect', message: 'Отключаю текущее соединение...' });
+                setProgress({ stage: 'disconnect', message: t('trayDisconnecting') });
                 await api.disconnect();
             } else {
-                setProgress({ stage: 'prepare', message: 'Подбираю лучший сервер...' });
+                setProgress({ stage: 'prepare', message: t('traySelectingBest') });
                 await api.connectBestServer();
             }
             await refresh();
@@ -145,11 +147,11 @@ export default function TrayPopup() {
                     <div className="tray-popup-title-row">
                         <span className="tray-popup-brand">FrieRay</span>
                         <span className={`tray-popup-status ${connected ? 'connected' : 'idle'}`}>
-                            {connected ? 'Подключено' : 'Отключено'}
+                            {connected ? t('trayStatusConnected') : t('trayStatusIdle')}
                         </span>
                     </div>
                     <p className="tray-popup-subtitle">
-                        {currentServer ? currentServer.name : activeServer ? activeServer.name : 'Выбери сервер для быстрого подключения'}
+                        {currentServer ? currentServer.name : activeServer ? activeServer.name : t('trayChooseServer')}
                     </p>
                 </div>
             </div>
@@ -164,7 +166,7 @@ export default function TrayPopup() {
                         <span />
                     </div>
                     <div className="tray-popup-progress-copy">
-                        <div className="tray-popup-progress-title">Подключение в процессе</div>
+                        <div className="tray-popup-progress-title">{t('trayConnectingTitle')}</div>
                         <div className="tray-popup-progress-text">{progress.message}</div>
                     </div>
                 </div>
@@ -177,22 +179,22 @@ export default function TrayPopup() {
                     loading={busy}
                     onClick={handleConnectToggle}
                 >
-                    {connected ? 'Отключить' : 'Подключить лучший'}
+                    {connected ? t('trayDisconnect') : t('trayConnectBest')}
                 </Button>
                 <Button variant="secondary" size="sm" onClick={handleOpenApp}>
-                    Открыть приложение
+                    {t('trayOpenApp')}
                 </Button>
             </div>
 
             <div className="tray-popup-stats">
                 <div className={`tray-popup-stat ping-${pingTone}`}>
-                    <span className="tray-popup-stat-label">Пинг</span>
+                    <span className="tray-popup-stat-label">{t('ping')}</span>
                     <span className="tray-popup-stat-value">
                         {ping === null ? '—' : `${ping} ms`}
                     </span>
                 </div>
                 <div className="tray-popup-stat">
-                    <span className="tray-popup-stat-label">Время подключения</span>
+                    <span className="tray-popup-stat-label">{t('trayConnectionTime')}</span>
                     <span className="tray-popup-stat-value">
                         {connected ? duration : '—'}
                     </span>

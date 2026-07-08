@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import Card, { CardHeader, CardBody } from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Toggle from '../components/UI/Toggle';
+import { useI18n } from '../hooks/useI18n';
 import * as api from '../api/tauri';
 import './Servers.css';
 
 export default function Servers() {
+    const { t } = useI18n();
     const [servers, setServers] = useState([]);
     const [activeServerId, setActiveServerId] = useState(null);
     const [subscriptions, setSubscriptions] = useState([]);
@@ -59,16 +61,16 @@ export default function Servers() {
     };
 
     const getPingLabel = (server) => {
-        if (server.ping_checking) return 'Скан...';
-        if (server.reachable === false) return 'Недоступен';
+        if (server.ping_checking) return t('scan');
+        if (server.reachable === false) return t('unreachable');
         const ping = server.ping;
         if (!ping && ping !== 0) return '—';
         return `${ping}ms`;
     };
 
     const formatSpeedLabel = (server) => {
-        if (server.speed_checking) return 'Скан...';
-        if (server.speed_reachable === false) return 'Недоступен';
+        if (server.speed_checking) return t('scan');
+        if (server.speed_reachable === false) return t('unreachable');
         const speedMbps = server.speed_mbps;
         if (speedMbps === null || speedMbps === undefined) return '—';
         if (speedMbps < 1) return `${speedMbps.toFixed(2)} Mb/s`;
@@ -80,7 +82,7 @@ export default function Servers() {
         setError(null);
         try {
             const sub = await api.addSubscription(
-                subName.trim() || 'Подписка ' + (subscriptions.length + 1),
+                subName.trim() || t('subscriptionDefaultName', { count: subscriptions.length + 1 }),
                 subUrl.trim()
             );
             if (sub) setSubscriptions(prev => [...prev, sub]);
@@ -89,7 +91,7 @@ export default function Servers() {
             setSubName('');
             handleUpdateAll();
         } catch (e) {
-            setError(e?.toString() || 'Ошибка добавления подписки');
+            setError(e?.toString() || t('subscriptionAddError'));
         }
     };
 
@@ -102,7 +104,7 @@ export default function Servers() {
             const subs = await api.getSubscriptions();
             if (subs) setSubscriptions(subs);
         } catch (e) {
-            setError(e?.toString() || 'Ошибка обновления');
+            setError(e?.toString() || t('subscriptionUpdateError'));
         } finally {
             setIsUpdating(false);
         }
@@ -124,7 +126,7 @@ export default function Servers() {
             const result = await api.pingAllServers();
             if (result) setServers(result);
         } catch (e) {
-            setError(e?.toString() || 'Ошибка пинга');
+            setError(e?.toString() || t('pingError'));
         } finally {
             setIsPinging(false);
         }
@@ -143,7 +145,7 @@ export default function Servers() {
             const result = await api.speedTestAllServers();
             if (result) setServers(result);
         } catch (e) {
-            setError(e?.toString() || 'Ошибка теста скорости');
+            setError(e?.toString() || t('speedError'));
         } finally {
             setIsTestingSpeed(false);
         }
@@ -188,8 +190,8 @@ export default function Servers() {
     return (
         <div className="servers-page">
             <div className="page-header">
-                <h1><span className="text-gradient">Серверы</span></h1>
-                <p>Управление подписками и серверами</p>
+                <h1><span className="text-gradient">{t('serversTitle')}</span></h1>
+                <p>{t('serversSubtitle')}</p>
             </div>
 
             {error && (
@@ -202,10 +204,10 @@ export default function Servers() {
             {/* === SUBSCRIPTIONS === */}
             <div className="servers-section">
                 <div className="servers-section-header">
-                    <h3 className="servers-section-title">✦ Подписки</h3>
+                    <h3 className="servers-section-title">{t('subscriptions')}</h3>
                     <Button variant="primary" size="sm" onClick={() => setShowAddSub(!showAddSub)}
                         icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}>
-                        Добавить
+                        {t('add')}
                     </Button>
                 </div>
 
@@ -213,17 +215,17 @@ export default function Servers() {
                     <Card variant="glass" hover={false} className="add-sub-card animate-fade-in-scale">
                         <CardBody>
                             <div className="add-sub-form">
-                                <p className="add-sub-title">Добавить подписку или ссылку</p>
-                                <p className="add-sub-desc">URL подписки или прямую ссылку vless://, vmess://, trojan://</p>
+                                <p className="add-sub-title">{t('addSubscriptionOrLink')}</p>
+                                <p className="add-sub-desc">{t('addSubscriptionDesc')}</p>
                                 <div className="add-sub-fields">
-                                    <input type="text" className="fr-input" placeholder="Название (необязательно)"
+                                    <input type="text" className="fr-input" placeholder={t('nameOptional')}
                                         value={subName} onChange={(e) => setSubName(e.target.value)} />
-                                    <input type="text" className="fr-input" placeholder="https://... или vless://..."
+                                    <input type="text" className="fr-input" placeholder={t('subscriptionPlaceholder')}
                                         value={subUrl} onChange={(e) => setSubUrl(e.target.value)} autoFocus />
                                 </div>
                                 <div className="add-sub-actions">
-                                    <Button variant="accent" size="sm" onClick={handleAddLink}>Добавить</Button>
-                                    <Button variant="ghost" size="sm" onClick={() => { setShowAddSub(false); setSubUrl(''); setSubName(''); }}>Отмена</Button>
+                                    <Button variant="accent" size="sm" onClick={handleAddLink}>{t('add')}</Button>
+                                    <Button variant="ghost" size="sm" onClick={() => { setShowAddSub(false); setSubUrl(''); setSubName(''); }}>{t('cancel')}</Button>
                                 </div>
                             </div>
                         </CardBody>
@@ -235,10 +237,10 @@ export default function Servers() {
                         <CardBody>
                             <div className="sub-empty">
                                 <span className="sub-empty-icon">🔗</span>
-                                <p>Нет добавленных подписок</p>
-                                <span className="sub-empty-hint">Нажмите «Добавить» чтобы вставить URL-подписку от вашего VPN-провайдера</span>
+                                <p>{t('noSubscriptions')}</p>
+                                <span className="sub-empty-hint">{t('noSubscriptionsHint')}</span>
                                 <Button variant="primary" size="sm" onClick={() => setShowAddSub(true)} style={{ marginTop: '12px' }}>
-                                    Добавить подписку
+                                    {t('addSubscription')}
                                 </Button>
                             </div>
                         </CardBody>
@@ -256,7 +258,7 @@ export default function Servers() {
                                         </div>
                                     </div>
                                     <div className="sub-item-right">
-                                        <span className="sub-item-meta">{sub.server_count} серверов</span>
+                                        <span className="sub-item-meta">{t('serverCount', { count: sub.server_count })}</span>
                                         <Button variant="ghost" size="sm" onClick={() => handleRemoveSub(sub.id)}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                         </Button>
@@ -270,8 +272,8 @@ export default function Servers() {
                 {subscriptions.length > 0 && (
                     <Card variant="glass" hover={false} className="sub-auto-update">
                         <CardBody>
-                            <Toggle id="auto-update" label="Автообновление подписок"
-                                description="Обновлять список серверов каждые 6 часов"
+                            <Toggle id="auto-update" label={t('autoUpdateSubs')}
+                                description={t('autoUpdateSubsDesc')}
                                 checked={autoUpdate} onChange={setAutoUpdate} />
                         </CardBody>
                     </Card>
@@ -281,19 +283,19 @@ export default function Servers() {
             {/* === SERVERS === */}
             <div className="servers-section">
                 <div className="servers-section-header">
-                    <h3 className="servers-section-title">✦ Список серверов ({servers.length})</h3>
+                    <h3 className="servers-section-title">{t('serversCount', { count: servers.length })}</h3>
                     <div className="servers-section-actions">
                         <Button variant="secondary" size="sm" loading={isPinging} onClick={handlePingAll}
                             icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>}>
-                            Пинг
+                            {t('ping')}
                         </Button>
                         <Button variant="secondary" size="sm" loading={isTestingSpeed} onClick={handleSpeedTestAll}
                             icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h3l3-8 4 16 3-8h5" /></svg>}>
-                            Скорость
+                            {t('speed')}
                         </Button>
                         <Button variant="secondary" size="sm" loading={isUpdating} onClick={handleUpdateAll}
                             icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>}>
-                            Обновить
+                            {t('update')}
                         </Button>
                     </div>
                 </div>
@@ -303,8 +305,8 @@ export default function Servers() {
                         <CardBody>
                             <div className="sub-empty">
                                 <span className="sub-empty-icon">📡</span>
-                                <p>Нет серверов</p>
-                                <span className="sub-empty-hint">Добавьте подписку и нажмите «Обновить»</span>
+                                <p>{t('noServers')}</p>
+                                <span className="sub-empty-hint">{t('noServersHint')}</span>
                             </div>
                         </CardBody>
                     </Card>
@@ -338,7 +340,7 @@ export default function Servers() {
                                             {activeServerId === server.id && (
                                                 <span className="server-active-badge">
                                                     <span className="server-active-badge-icon" aria-hidden="true">✓</span>
-                                                    <span className="server-active-badge-text">Активный</span>
+                                                    <span className="server-active-badge-text">{t('active')}</span>
                                                 </span>
                                             )}
                                         </span>

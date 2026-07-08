@@ -1,13 +1,15 @@
 import { useTheme } from '../../hooks/useTheme';
+import { useI18n } from '../../hooks/useI18n';
 import './ConnectButton.css';
 
 export default function ConnectButton({ connected, connecting, onToggle }) {
     const { isClassic } = useTheme();
+    const { t } = useI18n();
     const connectLabel = connecting
-        ? (isClassic ? 'Подключение...' : '✦ Активация заклинания... ✦')
+        ? (isClassic ? t('connecting') : t('connectMagicProgress'))
         : connected
-            ? (isClassic ? 'Подключено' : '✦ Связь установлена ✦')
-            : (isClassic ? 'Подключить' : '✦ Активировать ✦');
+            ? (isClassic ? t('connected') : t('magicConnected'))
+            : (isClassic ? t('connectClassic') : t('connectMagic'));
 
     return (
         <div className="connect-wrapper">

@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import Card, { CardBody } from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import { useI18n } from '../hooks/useI18n';
 import * as api from '../api/tauri';
 import './Logs.css';
 
 export default function Logs() {
+    const { t } = useI18n();
     const [logs, setLogs] = useState([]);
     const [filter, setFilter] = useState('all');
     const logEndRef = useRef(null);
@@ -43,8 +45,8 @@ export default function Logs() {
     return (
         <div className="logs-page">
             <div className="page-header">
-                <h1><span className="text-gradient">Логи</span></h1>
-                <p>Журнал событий и подключений</p>
+                <h1><span className="text-gradient">{t('logsTitle')}</span></h1>
+                <p>{t('logsSubtitle')}</p>
             </div>
 
             <div className="logs-toolbar">
@@ -55,11 +57,11 @@ export default function Logs() {
                             className={`log-filter-btn ${filter === f ? 'active' : ''}`}
                             onClick={() => setFilter(f)}
                         >
-                            {f === 'all' ? 'Все' : f === 'info' ? 'Инфо' : f === 'success' ? 'Успех' : f === 'warn' ? 'Предупр.' : 'Ошибки'}
+                            {f === 'all' ? t('filterAll') : f === 'info' ? t('filterInfo') : f === 'success' ? t('filterSuccess') : f === 'warn' ? t('filterWarn') : t('filterError')}
                         </button>
                     ))}
                 </div>
-                <Button variant="ghost" size="sm" onClick={clearLogs}>Очистить</Button>
+                <Button variant="ghost" size="sm" onClick={clearLogs}>{t('clear')}</Button>
             </div>
 
             <Card variant="glass" hover={false} className="logs-card">
@@ -67,7 +69,7 @@ export default function Logs() {
                     <div className="logs-container">
                         {filteredLogs.length === 0 ? (
                             <div className="logs-empty">
-                                {logs.length === 0 ? 'Нет записей — попробуйте подключиться к серверу' : 'Нет записей с этим фильтром'}
+                                {logs.length === 0 ? t('logsEmpty') : t('logsFilterEmpty')}
                             </div>
                         ) : (
                             filteredLogs.map((log, i) => (

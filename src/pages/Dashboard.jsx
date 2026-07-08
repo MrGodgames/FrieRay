@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ConnectButton from '../components/Connection/ConnectButton';
 import { useTheme } from '../hooks/useTheme';
+import { useI18n } from '../hooks/useI18n';
 import * as api from '../api/tauri';
 import './Dashboard.css';
 
@@ -13,6 +14,7 @@ const defaultSettings = {
 
 export default function Dashboard() {
     const { isClassic } = useTheme();
+    const { t } = useI18n();
     const [connected, setConnected] = useState(false);
     const [connecting, setConnecting] = useState(false);
     const [currentServer, setCurrentServer] = useState(null);
@@ -115,7 +117,7 @@ export default function Dashboard() {
             setSettings(nextSettings);
 
             if (connected) {
-                setError('Режим TUN сохранён. Переподключись, чтобы применить изменение.');
+                setError(t('dashboardTunChanged'));
             }
         } catch (e) {
             if (mountedRef.current) setError(String(e));
@@ -149,7 +151,7 @@ export default function Dashboard() {
             if (!server) {
                 const servers = await api.getServers();
                 if (!servers || servers.length === 0) {
-                    setError('Нет серверов. Добавьте подписку в разделе «Серверы»');
+                    setError(t('dashboardNoServers'));
                     setConnecting(false);
                     return;
                 }
@@ -170,17 +172,17 @@ export default function Dashboard() {
     const displayServer = currentServer || activeServer;
     const pingTone = ping === null ? 'muted' : ping < 100 ? 'good' : ping < 200 ? 'warn' : 'bad';
     const pingHint = ping === null
-        ? 'Появится после подключения к серверу.'
+        ? t('dashboardPingWaiting')
         : ping < 100
-            ? 'Низкая задержка.'
+            ? t('dashboardPingLow')
             : ping < 200
-                ? 'Средняя задержка.'
-                : 'Высокая задержка.';
+                ? t('dashboardPingMedium')
+                : t('dashboardPingHigh');
     const connectionStatus = connected
-        ? (isClassic ? 'Подключено' : '✦ Связь установлена ✦')
+        ? (isClassic ? t('connected') : t('magicConnected'))
         : connecting
-            ? (isClassic ? 'Подключение...' : '◌ Плетение заклинания...')
-            : (isClassic ? 'Не подключено' : '○ Магия в покое');
+            ? (isClassic ? t('connecting') : t('magicConnecting'))
+            : (isClassic ? t('disconnected') : t('magicIdle'));
 
     return (
         <div className="dashboard">
@@ -202,13 +204,13 @@ export default function Dashboard() {
 
                         <div className="dashboard-server-info">
                             <div className="server-info-row">
-                                <span className="server-info-label">✦ Сервер</span>
+                                <span className="server-info-label">{t('dashboardServer')}</span>
                                 <span className="server-info-value">
-                                    {displayServer ? displayServer.name : (loaded ? 'Не выбран — перейдите в «Серверы»' : 'Загрузка...')}
+                                    {displayServer ? displayServer.name : (loaded ? t('dashboardNoServerSelected') : t('loading'))}
                                 </span>
                             </div>
                             <div className="server-info-row">
-                                <span className="server-info-label">✦ Протокол</span>
+                                <span className="server-info-label">{t('dashboardProtocol')}</span>
                                 <span className="server-info-value">
                                     {displayServer
                                         ? (typeof displayServer.protocol === 'string' ? displayServer.protocol.toUpperCase() : 'VLESS')
@@ -216,26 +218,26 @@ export default function Dashboard() {
                                 </span>
                             </div>
                             <div className="server-info-row">
-                                <span className="server-info-label">✦ Адрес</span>
+                                <span className="server-info-label">{t('dashboardAddress')}</span>
                                 <span className="server-info-value server-info-mono">
                                     {displayServer ? `${displayServer.address}:${displayServer.port}` : '—'}
                                 </span>
                             </div>
                             <div className="server-info-row">
-                                <span className="server-info-label">✦ Статус</span>
+                                <span className="server-info-label">{t('dashboardStatus')}</span>
                                 <span className={`server-info-value status-${connected ? 'connected' : connecting ? 'connecting' : 'disconnected'}`}>
                                     {connectionStatus}
                                 </span>
                             </div>
                             <div className="server-info-row">
-                                <span className="server-info-label">✦ Сеанс</span>
+                                <span className="server-info-label">{t('dashboardSession')}</span>
                                 <span className="server-info-value server-info-mono">
                                     {connected ? duration : '00:00:00'}
                                 </span>
                             </div>
                             <div className="server-info-row server-info-row-tun">
                                 <div className="server-info-tun-copy">
-                                    <span className="server-info-label">✦ Пинг</span>
+                                    <span className="server-info-label">{t('dashboardPing')}</span>
                                     <span className="server-info-tun-hint">{pingHint}</span>
                                 </div>
                                 <div className={`dashboard-tun-toggle dashboard-tun-toggle-static ping-${pingTone}`}>
@@ -246,11 +248,11 @@ export default function Dashboard() {
                             </div>
                             <div className="server-info-row server-info-row-tun">
                                 <div className="server-info-tun-copy">
-                                    <span className="server-info-label">✦ TUN режим</span>
+                                    <span className="server-info-label">{t('dashboardTunMode')}</span>
                                     <span className="server-info-tun-hint">
                                         {settings.proxy.tun_mode
-                                            ? 'Включён в быстрых настройках'
-                                            : 'Выключен. Можно переключить отсюда.'}
+                                            ? t('dashboardTunOnHint')
+                                            : t('dashboardTunOffHint')}
                                     </span>
                                 </div>
                                 <button
@@ -263,7 +265,7 @@ export default function Dashboard() {
                                         <span className="dashboard-tun-toggle-thumb" />
                                     </span>
                                     <span className="dashboard-tun-toggle-text">
-                                        {tunBusy ? '...' : settings.proxy.tun_mode ? 'ВКЛ' : 'ВЫКЛ'}
+                                        {tunBusy ? '...' : settings.proxy.tun_mode ? t('on') : t('off')}
                                     </span>
                                 </button>
                             </div>

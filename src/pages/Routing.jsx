@@ -2,6 +2,7 @@ import Card, { CardHeader, CardBody } from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import Toggle from '../components/UI/Toggle';
 import { useState } from 'react';
+import { useI18n } from '../hooks/useI18n';
 import './Routing.css';
 
 const defaultRules = [
@@ -12,6 +13,7 @@ const defaultRules = [
 ];
 
 export default function Routing() {
+    const { t } = useI18n();
     const [rules, setRules] = useState(defaultRules);
 
     const toggleRule = (id) => {
@@ -22,9 +24,9 @@ export default function Routing() {
 
     const getActionBadge = (action) => {
         const styles = {
-            direct: { bg: 'rgba(45, 232, 160, 0.1)', color: 'var(--accent-400)', label: 'Напрямую' },
-            proxy: { bg: 'rgba(139, 106, 255, 0.1)', color: 'var(--primary-400)', label: 'Прокси' },
-            block: { bg: 'rgba(255, 107, 138, 0.1)', color: 'var(--error)', label: 'Блок' },
+            direct: { bg: 'rgba(45, 232, 160, 0.1)', color: 'var(--accent-400)', label: t('actionDirect') },
+            proxy: { bg: 'rgba(139, 106, 255, 0.1)', color: 'var(--primary-400)', label: t('actionProxy') },
+            block: { bg: 'rgba(255, 107, 138, 0.1)', color: 'var(--error)', label: t('actionBlock') },
         };
         const s = styles[action] || styles.proxy;
         return <span className="rule-action-badge" style={{ background: s.bg, color: s.color }}>{s.label}</span>;
@@ -33,8 +35,8 @@ export default function Routing() {
     return (
         <div className="routing-page">
             <div className="page-header">
-                <h1><span className="text-gradient">Маршрутизация</span></h1>
-                <p>Правила маршрутизации трафика</p>
+                <h1><span className="text-gradient">{t('routingTitle')}</span></h1>
+                <p>{t('routingSubtitle')}</p>
             </div>
 
             <div className="routing-actions">
@@ -43,7 +45,7 @@ export default function Routing() {
                         <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
                 }>
-                    Добавить правило
+                    {t('addRule')}
                 </Button>
             </div>
 
