@@ -147,7 +147,7 @@ export default function Sidebar() {
                     )}
                     <span>{theme === 'dark' ? t('themeDay') : t('themeNight')}</span>
                 </button>
-                <div className="sidebar-version">v0.2.4</div>
+                <div className="sidebar-version">v0.2.5</div>
             </div>
         </aside>
     );

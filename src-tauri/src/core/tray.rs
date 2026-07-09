@@ -1,30 +1,18 @@
-use crate::commands::connection::{
-    connect_best_server_rescan_with_app, connect_with_state, disconnect_with_state,
-    reconnect_best_server_rescan_with_app,
-};
+use crate::commands::connection::{connect_with_state, reconnect_best_server_rescan_with_app};
 use crate::commands::servers::ping_server;
 use crate::models::server::Server;
-use crate::utils::storage;
 use crate::AppState;
 use tauri::image::Image;
-use tauri::menu::{CheckMenuItem, Menu, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
-    ActivationPolicy, App, AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindow,
+    ActivationPolicy, App, AppHandle, Manager, PhysicalPosition, Rect, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder,
 };
 
 const TRAY_ID: &str = "main-tray";
 const TRAY_POPUP_LABEL: &str = "tray-popup";
-const MENU_STATUS: &str = "tray-status";
-const MENU_CURRENT: &str = "tray-current";
-const MENU_CONNECT: &str = "tray-connect";
-const MENU_DISCONNECT: &str = "tray-disconnect";
-const MENU_TOGGLE_WINDOW: &str = "tray-toggle-window";
-const MENU_QUIT: &str = "tray-quit";
-const MENU_SERVER_PREFIX: &str = "tray-server:";
 const TRAY_POPUP_WIDTH: f64 = 360.0;
-const TRAY_POPUP_HEIGHT: f64 = 280.0;
+const TRAY_POPUP_HEIGHT: f64 = 320.0;
 const TRAY_POPUP_MARGIN: f64 = 10.0;
 const HEALTH_CHECK_INTERVAL_SECS: u64 = 15;
 const HEALTH_CHECK_FAILURES_BEFORE_FAILOVER: u8 = 2;
@@ -35,23 +23,16 @@ struct TraySnapshot {
     connected: bool,
     current_server: Option<Server>,
     active_server: Option<Server>,
-    servers: Vec<Server>,
-    window_hidden: bool,
 }
 
 pub fn setup(app: &mut App) -> tauri::Result<()> {
     let app_handle = app.handle().clone();
     let snapshot = collect_tray_snapshot(&app_handle);
-    let menu = build_tray_menu(&app_handle, &snapshot)?;
 
     let mut tray_builder = TrayIconBuilder::with_id(TRAY_ID)
-        .menu(&menu)
         .tooltip(build_tray_tooltip(&snapshot))
         .icon_as_template(false)
         .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| {
-            handle_menu_event(app, event.id().as_ref().to_string());
-        })
         .on_tray_icon_event(|tray, event| {
             handle_tray_icon_event(tray.app_handle(), event);
         });
@@ -61,7 +42,6 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
     }
 
     tray_builder.build(app)?;
-    let _ = ensure_tray_popup_window(&app_handle);
     start_connection_health_monitor(&app_handle);
     Ok(())
 }
@@ -98,10 +78,7 @@ fn start_connection_health_monitor(app: &AppHandle) {
                             "warn",
                             &format!(
                                 "Tray health check: {} не отвечает ({}/{}): {}",
-                                server.name,
-                                failures,
-                                HEALTH_CHECK_FAILURES_BEFORE_FAILOVER,
-                                error
+                                server.name, failures, HEALTH_CHECK_FAILURES_BEFORE_FAILOVER, error
                             ),
                         )
                         .await;
@@ -115,7 +92,8 @@ fn start_connection_health_monitor(app: &AppHandle) {
                             )
                             .await;
 
-                        if let Err(error) = reconnect_best_server_rescan_with_app(&app_handle).await {
+                        if let Err(error) = reconnect_best_server_rescan_with_app(&app_handle).await
+                        {
                             let state = app_handle.state::<AppState>();
                             state
                                 .logs
@@ -146,8 +124,11 @@ fn refresh_tray_with_snapshot(app: &AppHandle, snapshot: &TraySnapshot) -> Resul
         return Ok(());
     };
 
-    let menu = build_tray_menu(app, snapshot).map_err(|e| e.to_string())?;
-    tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    // Keep the native tray menu disabled. FrieRay uses a custom webview popup so
+    // the menu-bar interaction feels like the app UI instead of falling back to
+    // the default macOS context menu on some machines/right-clicks.
+    tray.set_menu(None::<tauri::menu::Menu<tauri::Wry>>)
+        .map_err(|e| e.to_string())?;
     tray.set_tooltip(Some(build_tray_tooltip(snapshot)))
         .map_err(|e| e.to_string())?;
     tray.set_title(None::<String>).map_err(|e| e.to_string())?;
@@ -243,81 +224,18 @@ fn tray_icon_image(connected: bool) -> Option<Image<'static>> {
     Some(Image::new_owned(rgba, base.width(), base.height()))
 }
 
-fn handle_menu_event(app: &AppHandle, id: String) {
-    match id.as_str() {
-        MENU_TOGGLE_WINDOW => {
-            let snapshot = collect_tray_snapshot(app);
-            let result = if snapshot.window_hidden {
-                show_main_window(app)
-            } else {
-                hide_main_window(app)
-            };
-            if let Err(error) = result {
-                log::warn!("Tray window toggle: {}", error);
-            }
-        }
-        MENU_QUIT => {
-            app.exit(0);
-        }
-        MENU_CONNECT => {
-            let app_handle = app.clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(error) = connect_best_server_rescan_with_app(&app_handle).await {
-                    let state = app_handle.state::<AppState>();
-                    state
-                        .logs
-                        .add("error", &format!("Tray connect: {}", error))
-                        .await;
-                }
-                let _ = refresh_tray_async(&app_handle).await;
-            });
-        }
-        MENU_DISCONNECT => {
-            let app_handle = app.clone();
-            tauri::async_runtime::spawn(async move {
-                let state = app_handle.state::<AppState>();
-                if let Err(error) = disconnect_with_state(&state).await {
-                    state
-                        .logs
-                        .add("error", &format!("Tray disconnect: {}", error))
-                        .await;
-                }
-                let _ = refresh_tray_async(&app_handle).await;
-            });
-        }
-        _ if id.starts_with(MENU_SERVER_PREFIX) => {
-            let server_id = id.trim_start_matches(MENU_SERVER_PREFIX).to_string();
-            let app_handle = app.clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(error) = select_server_from_tray(&app_handle, &server_id).await {
-                    let state = app_handle.state::<AppState>();
-                    state
-                        .logs
-                        .add("error", &format!("Tray server switch: {}", error))
-                        .await;
-                }
-                let _ = refresh_tray_async(&app_handle).await;
-            });
-        }
-        _ => {}
-    }
-}
-
 fn handle_tray_icon_event(app: &AppHandle, event: TrayIconEvent) {
     if let TrayIconEvent::Click {
         button,
         button_state: MouseButtonState::Up,
         position,
+        rect,
         ..
     } = event
     {
         match button {
-            MouseButton::Left => {
-                let _ = toggle_tray_popup(app, position);
-                let _ = refresh_tray(app);
-            }
-            MouseButton::Right => {
-                hide_tray_popup(app);
+            MouseButton::Left | MouseButton::Right => {
+                let _ = toggle_tray_popup(app, position, rect);
                 let _ = refresh_tray(app);
             }
             _ => {}
@@ -350,7 +268,11 @@ fn ensure_tray_popup_window(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn toggle_tray_popup(app: &AppHandle, position: PhysicalPosition<f64>) -> Result<(), String> {
+fn toggle_tray_popup(
+    app: &AppHandle,
+    position: PhysicalPosition<f64>,
+    rect: Rect,
+) -> Result<(), String> {
     ensure_tray_popup_window(app)?;
     let popup = app
         .get_webview_window(TRAY_POPUP_LABEL)
@@ -361,7 +283,7 @@ fn toggle_tray_popup(app: &AppHandle, position: PhysicalPosition<f64>) -> Result
         return Ok(());
     }
 
-    position_tray_popup(app, &popup, position)?;
+    position_tray_popup(app, &popup, position, rect)?;
     popup.show().map_err(|e| e.to_string())?;
     popup.set_focus().map_err(|e| e.to_string())?;
     Ok(())
@@ -377,24 +299,47 @@ fn position_tray_popup(
     app: &AppHandle,
     popup: &WebviewWindow,
     position: PhysicalPosition<f64>,
+    rect: Rect,
 ) -> Result<(), String> {
-    let mut x = position.x - (TRAY_POPUP_WIDTH / 2.0);
-    let mut y = position.y + TRAY_POPUP_MARGIN;
+    let anchor = tray_anchor_point(position, rect);
+    let mut x = anchor.x - (TRAY_POPUP_WIDTH / 2.0);
+    let mut y = anchor.y + TRAY_POPUP_MARGIN;
 
-    if let Some(bounds) = monitor_bounds_for_point(app, position) {
+    if let Some(bounds) =
+        monitor_bounds_for_point(app, anchor).or_else(|| primary_monitor_bounds(app))
+    {
         let min_x = bounds.0;
         let max_x = bounds.0 + bounds.2 - TRAY_POPUP_WIDTH;
+        let min_y = bounds.1 + TRAY_POPUP_MARGIN;
         let max_y = bounds.1 + bounds.3 - TRAY_POPUP_HEIGHT - TRAY_POPUP_MARGIN;
+        let screen_mid_y = bounds.1 + bounds.3 / 2.0;
+        y = if anchor.y > screen_mid_y {
+            anchor.y - TRAY_POPUP_HEIGHT - TRAY_POPUP_MARGIN
+        } else {
+            anchor.y + TRAY_POPUP_MARGIN
+        };
         x = x.clamp(min_x, max_x.max(min_x));
-        y = y.clamp(
-            bounds.1 + TRAY_POPUP_MARGIN,
-            max_y.max(bounds.1 + TRAY_POPUP_MARGIN),
-        );
+        y = y.clamp(min_y, max_y.max(min_y));
     }
 
     popup
         .set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32))
         .map_err(|e| e.to_string())
+}
+
+fn tray_anchor_point(position: PhysicalPosition<f64>, rect: Rect) -> PhysicalPosition<f64> {
+    let (rect_width, rect_height) = match rect.size {
+        tauri::Size::Physical(size) => (size.width as f64, size.height as f64),
+        tauri::Size::Logical(size) => (size.width, size.height),
+    };
+    let (rect_x, rect_y) = match rect.position {
+        tauri::Position::Physical(position) => (position.x as f64, position.y as f64),
+        tauri::Position::Logical(position) => (position.x, position.y),
+    };
+    if rect_width > 0.0 && rect_height > 0.0 {
+        return PhysicalPosition::new(rect_x + rect_width / 2.0, rect_y + rect_height);
+    }
+    position
 }
 
 fn monitor_bounds_for_point(
@@ -418,37 +363,18 @@ fn monitor_bounds_for_point(
     None
 }
 
-async fn select_server_from_tray(app: &AppHandle, server_id: &str) -> Result<(), String> {
-    let state = app.state::<AppState>();
-    let server = {
-        let servers = state.servers.lock().await;
-        servers
-            .iter()
-            .find(|server| server.id == server_id)
-            .cloned()
-            .ok_or_else(|| "Сервер не найден".to_string())?
-    };
-
-    {
-        let mut active = state.active_server.lock().await;
-        *active = Some(server.clone());
-    }
-    storage::save_active_server_id(&server.id)?;
-
-    if state.xray.is_running().await {
-        disconnect_with_state(&state).await?;
-        connect_with_state(server.clone(), &state).await?;
-    } else {
-        state
-            .logs
-            .add(
-                "info",
-                &format!("Активный сервер изменён на {}", server.name),
-            )
-            .await;
-    }
-
-    Ok(())
+fn primary_monitor_bounds(app: &AppHandle) -> Option<(f64, f64, f64, f64)> {
+    let probe = app
+        .get_webview_window(TRAY_POPUP_LABEL)
+        .or_else(|| app.get_webview_window("main"))?;
+    let monitor = probe.primary_monitor().ok().flatten()?;
+    let work_area = monitor.work_area();
+    Some((
+        work_area.position.x as f64,
+        work_area.position.y as f64,
+        work_area.size.width as f64,
+        work_area.size.height as f64,
+    ))
 }
 
 fn collect_tray_snapshot(app: &AppHandle) -> TraySnapshot {
@@ -460,107 +386,12 @@ async fn collect_tray_snapshot_async(app: &AppHandle) -> TraySnapshot {
     let connected = state.xray.is_running().await;
     let current_server = state.current_server.lock().await.clone();
     let active_server = state.active_server.lock().await.clone();
-    let servers = state.servers.lock().await.clone();
-    let window_hidden = app
-        .get_webview_window("main")
-        .and_then(|window| {
-            let is_visible = window.is_visible().ok()?;
-            let is_minimized = window.is_minimized().ok().unwrap_or(false);
-            Some(!is_visible || is_minimized)
-        })
-        .unwrap_or(false);
 
     TraySnapshot {
         connected,
         current_server,
         active_server,
-        servers,
-        window_hidden,
     }
-}
-
-fn build_tray_menu(app: &AppHandle, snapshot: &TraySnapshot) -> tauri::Result<Menu<tauri::Wry>> {
-    let status_text = if snapshot.connected {
-        "Статус: подключено"
-    } else {
-        "Статус: не подключено"
-    };
-    let current_text = match snapshot
-        .current_server
-        .as_ref()
-        .or(snapshot.active_server.as_ref())
-    {
-        Some(server) => format!("Сервер: {}", server.name),
-        None => "Сервер: не выбран".to_string(),
-    };
-
-    let mut server_list = snapshot.servers.clone();
-    let active_server_id = snapshot
-        .active_server
-        .as_ref()
-        .map(|server| server.id.as_str());
-    server_list.sort_by(|left, right| {
-        let left_active = Some(left.id.as_str()) == active_server_id;
-        let right_active = Some(right.id.as_str()) == active_server_id;
-        right_active
-            .cmp(&left_active)
-            .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
-    });
-
-    let mut server_submenu_builder = SubmenuBuilder::new(app, "Серверы");
-    if server_list.is_empty() {
-        let empty_item = MenuItemBuilder::with_id("tray-no-servers", "Нет серверов")
-            .enabled(false)
-            .build(app)?;
-        server_submenu_builder = server_submenu_builder.item(&empty_item);
-    } else {
-        for server in &server_list {
-            let server_item = CheckMenuItem::with_id(
-                app,
-                format!("{MENU_SERVER_PREFIX}{}", server.id),
-                &server.name,
-                true,
-                Some(server.id.as_str()) == active_server_id,
-                None::<&str>,
-            )?;
-            server_submenu_builder = server_submenu_builder.item(&server_item);
-        }
-    }
-    let servers_submenu = server_submenu_builder.build()?;
-
-    let status_item = MenuItemBuilder::with_id(MENU_STATUS, status_text)
-        .enabled(false)
-        .build(app)?;
-    let current_item = MenuItemBuilder::with_id(MENU_CURRENT, current_text)
-        .enabled(false)
-        .build(app)?;
-    let connect_item = MenuItemBuilder::with_id(MENU_CONNECT, "Пересканировать и подключить")
-        .enabled(!snapshot.connected && !server_list.is_empty())
-        .build(app)?;
-    let disconnect_item = MenuItemBuilder::with_id(MENU_DISCONNECT, "Отключить")
-        .enabled(snapshot.connected)
-        .build(app)?;
-    let window_toggle_text = if snapshot.window_hidden {
-        "Показать окно"
-    } else {
-        "Скрыть окно"
-    };
-    let window_toggle_item =
-        MenuItemBuilder::with_id(MENU_TOGGLE_WINDOW, window_toggle_text).build(app)?;
-    let quit_item = MenuItemBuilder::with_id(MENU_QUIT, "Выйти из FrieRay").build(app)?;
-
-    MenuBuilder::new(app)
-        .item(&status_item)
-        .item(&current_item)
-        .separator()
-        .item(&connect_item)
-        .item(&disconnect_item)
-        .separator()
-        .item(&window_toggle_item)
-        .item(&servers_submenu)
-        .separator()
-        .item(&quit_item)
-        .build()
 }
 
 fn build_tray_tooltip(snapshot: &TraySnapshot) -> String {
