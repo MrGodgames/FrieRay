@@ -41,7 +41,7 @@ src-tauri/target/release/bundle/dmg/
 
 ## GitHub release
 
-1. Create a tag such as `v0.2.4`.
+1. Create a tag such as `v0.2.5`.
 2. Publish a GitHub release with:
    - summary of changes
    - security notes, if any

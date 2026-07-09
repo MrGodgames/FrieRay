@@ -1,6 +1,6 @@
 [package]
 name = "frieray"
-version = "0.2.4"
+version = "0.2.5"
 description = "A macOS desktop V2Ray/Xray client built with Tauri, React, and Rust."
 authors = ["MrGodgames"]
 license = "MIT"

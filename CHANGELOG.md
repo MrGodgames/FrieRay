@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.2.5 - Tray Popup Stability Hotfix
+
+Release type: patch
+
+This release fixes macOS tray popup behavior seen in bundled builds and improves auto-reconnect cleanup after sleep/wake.
+
+### Fixed
+
+- Disabled the native macOS/Tauri tray menu fallback so FrieRay consistently opens the custom tray popup.
+- Tray popup is now created lazily on click instead of being pre-created at startup, reducing center-screen/default-position flashes.
+- Popup positioning now anchors to the tray icon rectangle and clamps to the active monitor work area.
+- Connected tray popup layout now has enough height for Disconnect, Find replacement, and Open app actions without clipping.
+- Auto-reconnect now cleans stale Xray/TUN/system-proxy state before rescanning servers, which helps recovery after Mac sleep/wake.
+- Disconnect cleanup is best-effort, so a stale Xray stop error no longer blocks proxy/TUN reset and fresh reconnect attempts.
+
+### Verification
+
+- `npm audit --audit-level=moderate`
+- `npm run build`
+- `cargo test`
+- `cargo check`
+- `npm run tauri build`
+
 ## v0.2.4 - Tray Reliability and Release UI Cleanup
 
 Release type: patch

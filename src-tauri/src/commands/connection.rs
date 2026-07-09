@@ -40,6 +40,25 @@ async fn connect_ranked_server_with_app(
         None
     };
     let excluded_ids = current_id.into_iter().collect::<Vec<_>>();
+
+    if state.xray.is_running().await {
+        let _ = app.emit(
+            crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
+            crate::commands::servers::AutoSelectProgress {
+                stage: "disconnect".to_string(),
+                message: "Отключаю текущее соединение перед проверкой серверов...".into(),
+            },
+        );
+        state
+            .logs
+            .add(
+                "info",
+                "Автовыбор сервера: очищаю текущее TUN/proxy соединение перед ресканом...",
+            )
+            .await;
+        let _ = disconnect_with_state(&state).await;
+    }
+
     let candidates = crate::commands::servers::rank_servers_for_auto_select(
         app,
         &state,
@@ -47,17 +66,6 @@ async fn connect_ranked_server_with_app(
         &excluded_ids,
     )
     .await?;
-
-    if state.xray.is_running().await {
-        let _ = app.emit(
-            crate::commands::servers::AUTO_SELECT_PROGRESS_EVENT,
-            crate::commands::servers::AutoSelectProgress {
-                stage: "disconnect".to_string(),
-                message: "Отключаю текущее соединение перед сменой сервера...".into(),
-            },
-        );
-        let _ = disconnect_with_state(&state).await;
-    }
 
     let mut last_error = None;
 
@@ -108,7 +116,10 @@ async fn connect_ranked_server_with_app(
                     .logs
                     .add(
                         "warn",
-                        &format!("{} не прошёл подключение, пробую следующий сервер", server.name),
+                        &format!(
+                            "{} не прошёл подключение, пробую следующий сервер",
+                            server.name
+                        ),
                     )
                     .await;
                 let _ = app.emit(
@@ -329,9 +340,14 @@ pub async fn disconnect_with_state(state: &AppState) -> Result<String, String> {
         state.logs.add("warn", &format!("TUN stop: {}", e)).await;
     }
 
-    // Stop xray
-    state.xray.stop().await?;
-    state.logs.add("info", "Xray-core остановлен").await;
+    // Stop xray. Disconnect must be best-effort: after sleep/wake the process or
+    // local sockets can be stale, but proxy/TUN/current-server state still needs
+    // cleanup so a fresh scan/reconnect is not blocked.
+    if let Err(e) = state.xray.stop().await {
+        state.logs.add("warn", &format!("Xray stop: {}", e)).await;
+    } else {
+        state.logs.add("info", "Xray-core остановлен").await;
+    }
 
     // Always unset system proxy on disconnect, just to be safe
     // in case it was set by a fallback or previous session

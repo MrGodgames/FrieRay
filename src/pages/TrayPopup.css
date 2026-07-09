@@ -12,11 +12,11 @@ html, body {
     height: calc(100vh - 14px);
     margin: 7px;
     overflow: hidden;
-    padding: 12px;
-    gap: 8px;
+    padding: 10px;
+    gap: 7px;
     color: var(--text-primary);
     box-sizing: border-box;
-    border-radius: 16px;
+    border-radius: 15px;
     border: 1px solid rgba(255, 255, 255, 0.14);
     background:
         radial-gradient(circle at 50% -18%, rgba(139, 106, 255, 0.28), transparent 36%),
@@ -39,7 +39,7 @@ html, body {
 
 .tray-popup-caret {
     position: absolute;
-    top: -4px;
+    top: -3px;
     left: 50%;
     width: 12px;
     height: 12px;
@@ -73,13 +73,13 @@ html, body {
 .tray-popup-title-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     min-width: 0;
 }
 
 .tray-popup-dot {
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
     border-radius: 999px;
     background: rgba(170, 160, 195, 0.7);
     box-shadow: 0 0 0 4px rgba(170, 160, 195, 0.08);
@@ -94,16 +94,16 @@ html, body {
     flex: 1;
     min-width: 0;
     font-family: var(--font-heading);
-    font-size: 1.05rem;
+    font-size: 1rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     line-height: 1;
 }
 
 .tray-popup-status {
-    padding: 4px 9px;
+    padding: 4px 8px;
     border-radius: 999px;
-    font-size: 0.62rem;
+    font-size: 0.6rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -121,9 +121,9 @@ html, body {
 .tray-popup-server-card {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 9px;
-    padding: 9px 10px;
+    gap: 9px;
+    margin-top: 8px;
+    padding: 8px 9px;
     border-radius: 12px;
     border: 1px solid rgba(139, 106, 255, 0.18);
     background: rgba(255, 255, 255, 0.045);
@@ -132,9 +132,9 @@ html, body {
 .tray-popup-server-icon {
     display: grid;
     place-items: center;
-    width: 24px;
-    height: 24px;
-    flex: 0 0 24px;
+    width: 23px;
+    height: 23px;
+    flex: 0 0 23px;
     border-radius: 8px;
     color: #d9c8ff;
     background: rgba(139, 106, 255, 0.16);
@@ -150,7 +150,7 @@ html, body {
 .tray-popup-server-label {
     overflow: hidden;
     color: var(--text-muted);
-    font-size: 0.64rem;
+    font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -161,7 +161,7 @@ html, body {
 .tray-popup-server-name {
     overflow: hidden;
     color: var(--text-primary);
-    font-size: 0.84rem;
+    font-size: 0.8rem;
     font-weight: 700;
     line-height: 1.25;
     text-overflow: ellipsis;
@@ -249,12 +249,12 @@ html, body {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 7px 10px;
+    padding: 7px 9px;
     border-radius: 12px;
     color: var(--text-muted);
     border: 1px solid rgba(139, 106, 255, 0.14);
     background: rgba(255, 255, 255, 0.03);
-    font-size: 0.72rem;
+    font-size: 0.68rem;
 }
 
 .tray-popup-health-main {
@@ -271,6 +271,12 @@ html, body {
     flex: 0 0 7px;
     border-radius: 999px;
     background: var(--text-muted);
+}
+
+.tray-popup-health-main span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .tray-popup-health-card.ping-good .tray-popup-health-dot,
@@ -299,8 +305,8 @@ html, body {
 .tray-popup-actions {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding: 4px;
+    gap: 2px;
+    padding: 3px;
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.035);
@@ -311,11 +317,11 @@ html, body {
     align-items: center;
     gap: 10px;
     width: 100%;
-    min-height: 32px;
-    padding: 8px 10px;
+    min-height: 31px;
+    padding: 6px 9px;
     color: var(--text-secondary);
     font: inherit;
-    font-size: 0.86rem;
+    font-size: 0.8rem;
     font-weight: 700;
     text-align: left;
     border: 0;
@@ -342,9 +348,9 @@ html, body {
 .tray-menu-action-icon {
     display: grid;
     place-items: center;
-    width: 22px;
-    height: 22px;
-    flex: 0 0 22px;
+    width: 21px;
+    height: 21px;
+    flex: 0 0 21px;
     border-radius: 7px;
     color: #d9c8ff;
     background: rgba(139, 106, 255, 0.14);
@@ -372,10 +378,10 @@ html, body {
 .tray-popup-meta {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     flex: 0 0 auto;
     color: var(--text-secondary);
-    font-size: 0.72rem;
+    font-size: 0.66rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
 }

@@ -308,10 +308,7 @@ pub async fn rank_servers_for_auto_select(
         emit_auto_select_progress(
             app,
             "selected",
-            &format!(
-                "Выбран сервер: {} ({:.1} Mb/s)",
-                server.name, speed
-            ),
+            &format!("Выбран сервер: {} ({:.1} Mb/s)", server.name, speed),
         );
     }
 

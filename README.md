@@ -1,7 +1,7 @@
 # FrieRay
 
 [![CI](https://github.com/MrGodgames/FrieRay/actions/workflows/ci.yml/badge.svg)](https://github.com/MrGodgames/FrieRay/actions/workflows/ci.yml)
-![Version](https://img.shields.io/badge/version-0.2.4-blue)
+![Version](https://img.shields.io/badge/version-0.2.5-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Tauri](https://img.shields.io/badge/Tauri-2.x-24C8DB)
 ![React](https://img.shields.io/badge/React-19-61DAFB)
@@ -46,14 +46,14 @@ FrieRay is being prepared for a wider open-source roadmap: Linux and Windows por
 
 ## Release
 
-Latest prepared version: `v0.2.4`
+Latest prepared version: `v0.2.5`
 
 Prebuilt macOS builds are published through [GitHub Releases](https://github.com/MrGodgames/FrieRay/releases).
 
 Expected macOS artifact names:
 
 ```text
-FrieRay_0.2.4_aarch64.dmg
+FrieRay_0.2.5_aarch64.dmg
 FrieRay.app
 ```
 
@@ -225,7 +225,7 @@ FrieRay — десктопный V2Ray/Xray-клиент для macOS на Tauri
 
 ### Безопасность
 
-В версии `0.2.4` улучшен tray workflow и сохранены базовые настройки безопасности: HTTPS для удалённых подписок, приватные права на локальные конфиги, CSP для webview, удалены shell-permissions из Tauri frontend, а URL подписок больше не логируются целиком.
+В версии `0.2.5` улучшена стабильность tray popup, позиционирование и автопереподключение после sleep/wake; в `0.2.4` был улучшен tray workflow и сохранены базовые настройки безопасности: HTTPS для удалённых подписок, приватные права на локальные конфиги, CSP для webview, удалены shell-permissions из Tauri frontend, а URL подписок больше не логируются целиком.
 
 Следующие задачи по безопасности: macOS Keychain для секретов, checksum для `tun2socks`, улучшенный uninstall для TUN helper и поддержка dependency audit в CI в зелёном состоянии.
 
